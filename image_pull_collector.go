@@ -113,7 +113,7 @@ func (ev ImagePullingEvent) Handle(statistic *PodStatistic) bool {
 		var ok bool
 		container_statistic, ok = statistic.InitContainers[ev.containerName]
 		if !ok {
-			logger.Panic().Msgf(
+			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", ev.containerName,
 			)
 
@@ -123,7 +123,7 @@ func (ev ImagePullingEvent) Handle(statistic *PodStatistic) bool {
 		var ok bool
 		container_statistic, ok = statistic.Containers[ev.containerName]
 		if !ok {
-			logger.Panic().Msgf(
+			logger.Error().Msgf(
 				"Container statistic does not exist for %s", ev.containerName,
 			)
 
@@ -172,7 +172,7 @@ func (ev ImagePulledEvent) Handle(statistic *PodStatistic) bool {
 		var ok bool
 		container_statistic, ok = statistic.InitContainers[ev.containerName]
 		if !ok {
-			logger.Panic().Msgf(
+			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", ev.containerName,
 			)
 
@@ -182,7 +182,7 @@ func (ev ImagePulledEvent) Handle(statistic *PodStatistic) bool {
 		var ok bool
 		container_statistic, ok = statistic.Containers[ev.containerName]
 		if !ok {
-			logger.Panic().Msgf(
+			logger.Error().Msgf(
 				"Container statistic does not exist for %s", ev.containerName,
 			)
 

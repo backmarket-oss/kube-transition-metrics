@@ -141,11 +141,11 @@ func (s *PodStatistic) updateContainers(pod *corev1.Pod) {
 	for _, container_status := range pod.Status.InitContainerStatuses {
 		container_statistic, ok := s.InitContainers[container_status.Name]
 		if !ok {
-			logger.Panic().Msgf(
+			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", container_status.Name,
 			)
 
-			return
+			continue
 		}
 		container_statistic.update(now, container_status)
 	}
@@ -153,11 +153,11 @@ func (s *PodStatistic) updateContainers(pod *corev1.Pod) {
 	for _, container_status := range pod.Status.ContainerStatuses {
 		container_statistic, ok := s.Containers[container_status.Name]
 		if !ok {
-			logger.Panic().Msgf(
+			logger.Error().Msgf(
 				"Container statistic does not exist for %s", container_status.Name,
 			)
 
-			return
+			continue
 		}
 		container_statistic.update(now, container_status)
 	}
