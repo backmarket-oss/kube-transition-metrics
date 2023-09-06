@@ -47,22 +47,10 @@ func (s *PodStatistic) Initialize(pod *corev1.Pod) {
 	s.Containers = make(map[string]*ContainerStatistic)
 
 	for _, container := range pod.Spec.InitContainers {
-		container_statistic := &ContainerStatistic{
-			name:          container.Name,
-			initContainer: true,
-			pod:           s,
-		}
-		container_statistic.imagePull.container = container_statistic
-		s.InitContainers[container.Name] = container_statistic
+		s.InitContainers[container.Name] = NewContainerStatistic(s, true, container)
 	}
 	for _, container := range pod.Spec.Containers {
-		container_statistic := &ContainerStatistic{
-			name:          container.Name,
-			initContainer: false,
-			pod:           s,
-		}
-		container_statistic.imagePull.container = container_statistic
-		s.Containers[container.Name] = container_statistic
+		s.Containers[container.Name] = NewContainerStatistic(s, false, container)
 	}
 }
 
@@ -153,7 +141,11 @@ func (s *PodStatistic) updateContainers(pod *corev1.Pod) {
 	for _, container_status := range pod.Status.InitContainerStatuses {
 		container_statistic, ok := s.InitContainers[container_status.Name]
 		if !ok {
-			logger.Fatal().Msgf("Init container statistic does not exist for %s", container_status.Name)
+			logger.Panic().Msgf(
+				"Init container statistic does not exist for %s", container_status.Name,
+			)
+
+			return
 		}
 		container_statistic.update(now, container_status)
 	}
@@ -161,7 +153,11 @@ func (s *PodStatistic) updateContainers(pod *corev1.Pod) {
 	for _, container_status := range pod.Status.ContainerStatuses {
 		container_statistic, ok := s.Containers[container_status.Name]
 		if !ok {
-			logger.Fatal().Msgf("Container statistic does not exist for %s", container_status.Name)
+			logger.Panic().Msgf(
+				"Container statistic does not exist for %s", container_status.Name,
+			)
+
+			return
 		}
 		container_statistic.update(now, container_status)
 	}

@@ -25,6 +25,21 @@ type ContainerStatistic struct {
 	readyTimestamp time.Time
 }
 
+func NewContainerStatistic(
+	pod_statistic *PodStatistic,
+	init_container bool,
+	container corev1.Container,
+) *ContainerStatistic {
+	container_statistic := &ContainerStatistic{
+		name:          container.Name,
+		initContainer: init_container,
+		pod:           pod_statistic,
+	}
+	container_statistic.imagePull.container = container_statistic
+
+	return container_statistic
+}
+
 func (cs ContainerStatistic) logger() zerolog.Logger {
 	return cs.pod.logger().With().
 		Str("container_name", cs.name).

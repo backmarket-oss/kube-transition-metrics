@@ -36,7 +36,7 @@ func CollectInitialPods(
 		list, err =
 			clientset.CoreV1().Pods("").List(context.Background(), list_options)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Error performing initial sync.")
+			log.Error().Err(err).Msg("Error performing initial sync.")
 
 			return nil, "", fmt.Errorf("could not perform initial pod sync: %w", err)
 		}
@@ -155,7 +155,7 @@ func (w *PodCollector) Run(
 		watcher, err :=
 			clientset.CoreV1().Pods("").Watch(context.Background(), watch_ops)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Error starting watcher.")
+			log.Panic().Err(err).Msg("Error starting watcher.")
 
 			return
 		}
@@ -168,7 +168,7 @@ func (w *PodCollector) Run(
 
 				break
 			} else if pod, ok = event.Object.(*corev1.Pod); !ok {
-				log.Fatal().Msgf("Watch event is not a Pod: %+v", event)
+				log.Panic().Msgf("Watch event is not a Pod: %+v", event)
 
 				return
 			} else if event := w.handlePod(clientset, event.Type, pod); event != nil {

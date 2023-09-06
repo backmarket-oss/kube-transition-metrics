@@ -25,11 +25,15 @@ type ImagePullCollector struct {
 	podUID     types.UID
 }
 
-func NewImagePullCollector(eh *StatisticEventHandler, namespace string, pod_uid types.UID) ImagePullCollector {
+func NewImagePullCollector(
+	event_handler *StatisticEventHandler,
+	namespace string,
+	pod_uid types.UID,
+) ImagePullCollector {
 	return ImagePullCollector{
 		canceled:   &atomic.Bool{},
 		cancelChan: make(chan string),
-		eh:         eh,
+		eh:         event_handler,
 		namespace:  namespace,
 		podUID:     pod_uid,
 	}
@@ -42,9 +46,8 @@ func (c ImagePullCollector) cancel(reason string) {
 	// Sleep for a bit to allow any pending events to flush.
 	time.Sleep(time.Second * 3)
 
-	if !c.canceled.Load() {
+	if !c.canceled.Swap(true) {
 		logger.Debug().Msgf("Canceling collector: %s", reason)
-		c.canceled.Store(true)
 		c.cancelChan <- reason
 		close(c.cancelChan)
 	} else {
@@ -62,13 +65,17 @@ func (c ImagePullCollector) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (c ImagePullCollector) parseContainerName(field_ref string) (bool, string) {
+func (c ImagePullCollector) parseContainerName(
+	field_ref string,
+) (bool, string) {
 	r := regexp.MustCompile(`^spec\.((?:initC|c)ontainers)\{(.*)\}$`)
 
 	matches := r.FindStringSubmatch(field_ref)
 	logger := c.logger()
 	if matches == nil {
-		logger.Error().Str("field_ref", field_ref).Msg("Failed to find container name")
+		logger.Error().
+			Str("field_ref", field_ref).
+			Msg("Failed to find container name")
 
 		return false, ""
 	}
@@ -90,7 +97,7 @@ func (ev ImagePullingEvent) PodUID() types.UID {
 func (ev ImagePullingEvent) logger() *zerolog.Logger {
 	logger := ev.collector.logger().
 		With().
-		Str("image_pull_event_type", "image_pulling_event").
+		Str("image_pull_event_type", "image_pulling").
 		Str("container_name", ev.containerName).
 		Bool("init_container", ev.initContainer).
 		Logger()
@@ -101,12 +108,29 @@ func (ev ImagePullingEvent) logger() *zerolog.Logger {
 func (ev ImagePullingEvent) Handle(statistic *PodStatistic) bool {
 	logger := ev.logger()
 
-	var image_pull_statistic *ImagePullStatistic
+	var container_statistic *ContainerStatistic
 	if ev.initContainer {
-		image_pull_statistic = &statistic.InitContainers[ev.containerName].imagePull
+		var ok bool
+		container_statistic, ok = statistic.InitContainers[ev.containerName]
+		if !ok {
+			logger.Panic().Msgf(
+				"Init container statistic does not exist for %s", ev.containerName,
+			)
+
+			return false
+		}
 	} else {
-		image_pull_statistic = &statistic.Containers[ev.containerName].imagePull
+		var ok bool
+		container_statistic, ok = statistic.Containers[ev.containerName]
+		if !ok {
+			logger.Panic().Msgf(
+				"Container statistic does not exist for %s", ev.containerName,
+			)
+
+			return false
+		}
 	}
+	image_pull_statistic := &container_statistic.imagePull
 
 	if !image_pull_statistic.finishedAt.IsZero() {
 		logger.Debug().Str("container_name", ev.containerName).
@@ -129,13 +153,43 @@ func (ev ImagePulledEvent) PodUID() types.UID {
 	return ev.collector.podUID
 }
 
+func (ev ImagePulledEvent) logger() *zerolog.Logger {
+	logger := ev.collector.logger().
+		With().
+		Str("image_pull_event_type", "image_pulled").
+		Str("container_name", ev.containerName).
+		Bool("init_container", ev.initContainer).
+		Logger()
+
+	return &logger
+}
+
 func (ev ImagePulledEvent) Handle(statistic *PodStatistic) bool {
-	var image_pull_statistic *ImagePullStatistic
+	logger := ev.logger()
+
+	var container_statistic *ContainerStatistic
 	if ev.initContainer {
-		image_pull_statistic = &statistic.InitContainers[ev.containerName].imagePull
+		var ok bool
+		container_statistic, ok = statistic.InitContainers[ev.containerName]
+		if !ok {
+			logger.Panic().Msgf(
+				"Init container statistic does not exist for %s", ev.containerName,
+			)
+
+			return false
+		}
 	} else {
-		image_pull_statistic = &statistic.Containers[ev.containerName].imagePull
+		var ok bool
+		container_statistic, ok = statistic.Containers[ev.containerName]
+		if !ok {
+			logger.Panic().Msgf(
+				"Container statistic does not exist for %s", ev.containerName,
+			)
+
+			return false
+		}
 	}
+	image_pull_statistic := &container_statistic.imagePull
 
 	if image_pull_statistic.finishedAt.IsZero() {
 		image_pull_statistic.finishedAt = ev.event.LastTimestamp.Time
@@ -188,7 +242,8 @@ func (c ImagePullCollector) handleEvent(
 	return nil
 }
 
-// Ignores any cancel events to avoid blocking PodCollector when a watch error occurs.
+// Ignores any cancel events to avoid blocking PodCollector when a watch error
+// occurs.
 func (c ImagePullCollector) stubCancel() {
 	logger := c.logger()
 	reason := <-c.cancelChan
@@ -209,8 +264,11 @@ func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 		logger.Error().Msgf("Watch event is not an Event: %+v", watch_event)
 
 		return true
-	} else if statistic_event := c.handleEvent(watch_event.Type, event); statistic_event != nil {
-		logger.Info().Msgf("Publish event: %q", reflect.TypeOf(statistic_event))
+	} else if statistic_event :=
+		c.handleEvent(watch_event.Type, event); statistic_event != nil {
+		logger.Debug().Msgf(
+			"Publish event: %s", reflect.TypeOf(statistic_event).String(),
+		)
 		c.eh.EventChan <- statistic_event
 	}
 
@@ -241,7 +299,7 @@ func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 		watcher, err :=
 			clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watch_ops)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Error starting watcher.")
+			logger.Panic().Err(err).Msg("Error starting watcher.")
 
 			go c.stubCancel()
 
