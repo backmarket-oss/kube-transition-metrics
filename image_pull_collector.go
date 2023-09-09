@@ -309,6 +309,13 @@ func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 		for !should_break {
 			select {
 			case watch_event := <-watcher.ResultChan():
+				if watch_event.Object == nil {
+					logger.Error().Msgf("Nil watch event, aborting image pull watcher")
+
+					go c.stubCancel()
+
+					return
+				}
 				should_break = c.handleWatchEvent(watch_event)
 			case reason := <-c.cancelChan:
 				logger.Debug().Msgf("Received cancel event: %s", reason)
