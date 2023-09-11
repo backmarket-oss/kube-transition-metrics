@@ -38,7 +38,7 @@ func main() {
 	handler := NewZerologHTTPHandler(http.DefaultServeMux)
 	// No timeouts can be set, but that's OK for us.
 	//nolint:gosec
-	if err := http.ListenAndServe("127.0.0.1:8080", handler); err != nil {
+	if err := http.ListenAndServe("0.0.0.0:8080", handler); err != nil {
 		log.Panic().Err(err).Msg(err.Error())
 	}
 }
