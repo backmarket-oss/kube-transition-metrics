@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"regexp"
 	"sync/atomic"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +17,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+)
+
+var (
+	ErrNilWatchEvent = errors.New("nil watch event")
 )
 
 type ImagePullCollector struct {
@@ -51,7 +57,7 @@ func (c ImagePullCollector) cancel(reason string) {
 		c.cancelChan <- reason
 		close(c.cancelChan)
 	} else {
-		logger.Warn().Msgf("Duplicate collector cancel received: %s", reason)
+		logger.Debug().Msgf("Duplicate collector cancel received: %s", reason)
 	}
 }
 
@@ -245,10 +251,11 @@ func (c ImagePullCollector) handleEvent(
 // Ignores any cancel events to avoid blocking PodCollector when a watch error
 // occurs.
 func (c ImagePullCollector) stubCancel() {
-	logger := c.logger()
 	reason := <-c.cancelChan
 
-	logger.Warn().Msgf("Received cancel event after shutdown: %+v", reason)
+	logger := c.logger()
+	logger.Warn().Msgf(
+		"Received cancel event after abnormal shutdown: %+v", reason)
 }
 
 func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
@@ -275,7 +282,34 @@ func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 	return false
 }
 
-func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
+func (c ImagePullCollector) watchUntilEnd(watcher watch.Interface) (bool, error) {
+	logger := c.logger()
+
+	should_break := false
+	for !should_break {
+		select {
+		case watch_event := <-watcher.ResultChan():
+			// TODO: This shouldn't normally happen, but it may be caused by the UID
+			// tracked being removed.
+			if watch_event.Object == nil {
+				return true, ErrNilWatchEvent
+			}
+
+			should_break = c.handleWatchEvent(watch_event)
+			EVENTS_PROCESSED.
+				With(prometheus.Labels{"event_type": string(watch_event.Type)}).
+				Inc()
+		case reason := <-c.cancelChan:
+			logger.Debug().Msgf("Received cancel event: %s", reason)
+
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (c ImagePullCollector) watchOptions() metav1.ListOptions {
 	time_out := int64(60)
 	send_initial_events := true
 	watch_ops := metav1.ListOptions{
@@ -290,40 +324,48 @@ func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 		).AsSelector().String(),
 	}
 
+	return watch_ops
+}
+
+func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 	logger := c.logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
-	defer logger.Debug().Msg("Stopped ImagePullCollector.")
+	IMAGE_PULL_COLLECTOR_ROUTINES.Inc()
+	defer func() {
+		logger.Debug().Msg("Stopped ImagePullCollector.")
+		IMAGE_PULL_COLLECTOR_ROUTINES.Dec()
+	}()
 
+	watch_ops := c.watchOptions()
 	for {
 		watcher, err :=
 			clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watch_ops)
 		if err != nil {
 			logger.Panic().Err(err).Msg("Error starting watcher.")
+			IMAGE_PULL_COLLECTOR_ERRORS.Inc()
 
 			go c.stubCancel()
 
 			return
 		}
-		should_break := false
-		for !should_break {
-			select {
-			case watch_event := <-watcher.ResultChan():
-				if watch_event.Object == nil {
-					logger.Error().Msgf("Nil watch event, aborting image pull watcher")
-
-					go c.stubCancel()
-
-					return
-				}
-				should_break = c.handleWatchEvent(watch_event)
-			case reason := <-c.cancelChan:
-				logger.Debug().Msgf("Received cancel event: %s", reason)
-
-				return
+		cancel, err := c.watchUntilEnd(watcher)
+		if err != nil {
+			logger.Error().Err(err).Msg(err.Error())
+			IMAGE_PULL_COLLECTOR_ERRORS.Inc()
+		}
+		if cancel {
+			// In non-error cancel conditions, the cancel channel has already been read
+			// and closed.  Otherwise, we need to stub future writes to the cancel
+			// channel to avoid blocking the StatisticEventHandler routine.
+			if err != nil {
+				go c.stubCancel()
 			}
+
+			return
 		}
 
 		logger.Warn().Msg("Watch ended, restarting. Some events may be lost.")
+		IMAGE_PULL_COLLECTOR_RESTARTS.Inc()
 	}
 }

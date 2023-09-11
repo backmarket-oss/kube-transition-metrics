@@ -54,5 +54,8 @@ func (eh *StatisticEventHandler) Run() {
 		if event.Handle(statistic) {
 			delete(eh.statistics, uid)
 		}
+
+		PODS_TRACKED.Set(float64(len(eh.statistics)))
+		EVENTS_HANDLED.Inc()
 	}
 }

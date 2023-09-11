@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,9 +63,12 @@ func (ev *PodAddedEvent) PodUID() types.UID {
 }
 
 func (ev *PodAddedEvent) Handle(statistic *PodStatistic) bool {
-	statistic.Initialize(ev.pod)
-	statistic.ImagePullCollector = NewImagePullCollector(ev.collector.eh, ev.pod.Namespace, ev.pod.UID)
-	go statistic.ImagePullCollector.Run(ev.clientset)
+	// As the PodAddedEvent may be called more than once, the initialization must only happen once.
+	if !statistic.Initialized {
+		statistic.Initialize(ev.pod)
+		statistic.ImagePullCollector = NewImagePullCollector(ev.collector.eh, ev.pod.Namespace, ev.pod.UID)
+		go statistic.ImagePullCollector.Run(ev.clientset)
+	}
 
 	statistic.update(ev.pod)
 
@@ -156,30 +160,36 @@ func (w *PodCollector) Run(
 			clientset.CoreV1().Pods("").Watch(context.Background(), watch_ops)
 		if err != nil {
 			log.Panic().Err(err).Msg("Error starting watcher.")
+			POD_COLLECTOR_ERRORS.Inc()
 
 			return
 		}
 
 		for event := range watcher.ResultChan() {
 			var pod *corev1.Pod
-			var ok bool
+			var is_a_pod bool
 			if event.Type == watch.Error {
 				log.Error().Msgf("Watch event error: %+v", event)
+				POD_COLLECTOR_ERRORS.Inc()
 
 				break
-			} else if pod, ok = event.Object.(*corev1.Pod); !ok {
+			} else if pod, is_a_pod = event.Object.(*corev1.Pod); !is_a_pod {
 				log.Panic().Msgf("Watch event is not a Pod: %+v", event)
+				POD_COLLECTOR_ERRORS.Inc()
 
 				return
 			} else if event := w.handlePod(clientset, event.Type, pod); event != nil {
 				w.eh.EventChan <- event
 			}
+
+			PODS_PROCESSED.With(prometheus.Labels{"event_type": string(event.Type)}).Inc()
 		}
 
 		// Some leak in w.blacklistUids and w.statistics could happen, as Deleted
 		// events may be lost. This could be mitigated by performing another full List
 		// and checking for removed pod UIDs.
 		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
+		POD_COLLECTOR_RESTARTS.Inc()
 		send_initial_events = true
 		watch_ops.ResourceVersion = ""
 	}
