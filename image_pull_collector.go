@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"regexp"
 	"sync/atomic"
@@ -17,10 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-)
-
-var (
-	ErrNilWatchEvent = errors.New("nil watch event")
 )
 
 type ImagePullCollector struct {
@@ -248,29 +243,18 @@ func (c ImagePullCollector) handleEvent(
 	return nil
 }
 
-// Ignores any cancel events to avoid blocking PodCollector when a watch error
-// occurs.
-func (c ImagePullCollector) stubCancel() {
-	reason := <-c.cancelChan
-
-	logger := c.logger()
-	logger.Warn().Msgf(
-		"Received cancel event after abnormal shutdown: %+v", reason)
-}
-
 func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 	logger := c.logger()
 
 	var event *corev1.Event
-	var ok bool
+	var is_event bool
 	if watch_event.Type == watch.Error {
 		logger.Error().Msgf("Watch event error: %+v", watch_event)
+		IMAGE_PULL_COLLECTOR_ERRORS.Inc()
 
 		return true
-	} else if event, ok = watch_event.Object.(*corev1.Event); !ok {
-		logger.Error().Msgf("Watch event is not an Event: %+v", watch_event)
-
-		return true
+	} else if event, is_event = watch_event.Object.(*corev1.Event); !is_event {
+		logger.Panic().Msgf("Watch event is not an Event: %+v", watch_event)
 	} else if statistic_event :=
 		c.handleEvent(watch_event.Type, event); statistic_event != nil {
 		logger.Debug().Msgf(
@@ -282,31 +266,37 @@ func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 	return false
 }
 
-func (c ImagePullCollector) watchUntilEnd(watcher watch.Interface) (bool, error) {
+func (c ImagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	logger := c.logger()
 
-	should_break := false
-	for !should_break {
+	watch_ops := c.watchOptions()
+	watcher, err :=
+		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watch_ops)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Error starting watcher.")
+	}
+	defer watcher.Stop()
+
+	for {
 		select {
-		case watch_event := <-watcher.ResultChan():
-			// TODO: This shouldn't normally happen, but it may be caused by the UID
-			// tracked being removed.
-			if watch_event.Object == nil {
-				return true, ErrNilWatchEvent
+		case watch_event, watcher_open := <-watcher.ResultChan():
+			if !watcher_open {
+				return false
 			}
 
-			should_break = c.handleWatchEvent(watch_event)
+			should_break := c.handleWatchEvent(watch_event)
 			EVENTS_PROCESSED.
 				With(prometheus.Labels{"event_type": string(watch_event.Type)}).
 				Inc()
+			if should_break {
+				return false
+			}
 		case reason := <-c.cancelChan:
 			logger.Debug().Msgf("Received cancel event: %s", reason)
 
-			return true, nil
+			return true
 		}
 	}
-
-	return false, nil
 }
 
 func (c ImagePullCollector) watchOptions() metav1.ListOptions {
@@ -337,32 +327,8 @@ func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 		IMAGE_PULL_COLLECTOR_ROUTINES.Dec()
 	}()
 
-	watch_ops := c.watchOptions()
 	for {
-		watcher, err :=
-			clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watch_ops)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Error starting watcher.")
-			IMAGE_PULL_COLLECTOR_ERRORS.Inc()
-
-			go c.stubCancel()
-
-			return
-		}
-		cancel, err := c.watchUntilEnd(watcher)
-		watcher.Stop()
-		if err != nil {
-			logger.Error().Err(err).Msg(err.Error())
-			IMAGE_PULL_COLLECTOR_ERRORS.Inc()
-		}
-		if cancel {
-			// In non-error cancel conditions, the cancel channel has already been read
-			// and closed.  Otherwise, we need to stub future writes to the cancel
-			// channel to avoid blocking the StatisticEventHandler routine.
-			if err != nil {
-				go c.stubCancel()
-			}
-
+		if c.watch(clientset) {
 			return
 		}
 

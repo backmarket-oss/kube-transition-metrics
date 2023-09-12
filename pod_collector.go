@@ -141,12 +141,12 @@ func (w *PodCollector) handlePod(
 	return nil
 }
 
-func (w *PodCollector) Run(
+func (w *PodCollector) watch(
 	clientset *kubernetes.Clientset,
 	resource_version string,
 ) {
 	time_out := int64(60)
-	send_initial_events := false
+	send_initial_events := resource_version != ""
 	watch_ops := metav1.ListOptions{
 		TimeoutSeconds:    &time_out,
 		SendInitialEvents: &send_initial_events,
@@ -154,45 +154,43 @@ func (w *PodCollector) Run(
 		ResourceVersion:   resource_version,
 		Limit:             100,
 	}
+	watcher, err :=
+		clientset.CoreV1().Pods("").Watch(context.Background(), watch_ops)
+	if err != nil {
+		log.Panic().Err(err).Msg("Error starting watcher.")
+	}
+	defer watcher.Stop()
 
-	for {
-		watcher, err :=
-			clientset.CoreV1().Pods("").Watch(context.Background(), watch_ops)
-		if err != nil {
-			log.Panic().Err(err).Msg("Error starting watcher.")
+	for event := range watcher.ResultChan() {
+		var pod *corev1.Pod
+		var is_a_pod bool
+		if event.Type == watch.Error {
+			log.Error().Msgf("Watch event error: %+v", event)
 			POD_COLLECTOR_ERRORS.Inc()
 
-			return
+			break
+		} else if pod, is_a_pod = event.Object.(*corev1.Pod); !is_a_pod {
+			log.Panic().Msgf("Watch event is not a Pod: %+v", event)
+		} else if event := w.handlePod(clientset, event.Type, pod); event != nil {
+			w.eh.EventChan <- event
 		}
 
-		for event := range watcher.ResultChan() {
-			var pod *corev1.Pod
-			var is_a_pod bool
-			if event.Type == watch.Error {
-				log.Error().Msgf("Watch event error: %+v", event)
-				POD_COLLECTOR_ERRORS.Inc()
+		PODS_PROCESSED.With(prometheus.Labels{"event_type": string(event.Type)}).Inc()
+	}
+}
 
-				break
-			} else if pod, is_a_pod = event.Object.(*corev1.Pod); !is_a_pod {
-				log.Panic().Msgf("Watch event is not a Pod: %+v", event)
-				POD_COLLECTOR_ERRORS.Inc()
-				watcher.Stop()
-
-				return
-			} else if event := w.handlePod(clientset, event.Type, pod); event != nil {
-				w.eh.EventChan <- event
-			}
-
-			PODS_PROCESSED.With(prometheus.Labels{"event_type": string(event.Type)}).Inc()
-		}
-		watcher.Stop()
+func (w *PodCollector) Run(
+	clientset *kubernetes.Clientset,
+	resource_version string,
+) {
+	for {
+		w.watch(clientset, resource_version)
 
 		// Some leak in w.blacklistUids and w.statistics could happen, as Deleted
 		// events may be lost. This could be mitigated by performing another full List
 		// and checking for removed pod UIDs.
 		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
 		POD_COLLECTOR_RESTARTS.Inc()
-		send_initial_events = true
-		watch_ops.ResourceVersion = ""
+		resource_version = ""
 	}
 }
