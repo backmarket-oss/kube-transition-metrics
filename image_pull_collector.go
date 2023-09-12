@@ -350,6 +350,7 @@ func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 			return
 		}
 		cancel, err := c.watchUntilEnd(watcher)
+		watcher.Stop()
 		if err != nil {
 			logger.Error().Err(err).Msg(err.Error())
 			IMAGE_PULL_COLLECTOR_ERRORS.Inc()

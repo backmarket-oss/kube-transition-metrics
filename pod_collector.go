@@ -176,6 +176,7 @@ func (w *PodCollector) Run(
 			} else if pod, is_a_pod = event.Object.(*corev1.Pod); !is_a_pod {
 				log.Panic().Msgf("Watch event is not a Pod: %+v", event)
 				POD_COLLECTOR_ERRORS.Inc()
+				watcher.Stop()
 
 				return
 			} else if event := w.handlePod(clientset, event.Type, pod); event != nil {
@@ -184,6 +185,7 @@ func (w *PodCollector) Run(
 
 			PODS_PROCESSED.With(prometheus.Labels{"event_type": string(event.Type)}).Inc()
 		}
+		watcher.Stop()
 
 		// Some leak in w.blacklistUids and w.statistics could happen, as Deleted
 		// events may be lost. This could be mitigated by performing another full List
