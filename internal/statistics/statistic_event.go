@@ -1,4 +1,4 @@
-package main
+package statistics
 
 import (
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
@@ -16,10 +16,12 @@ type StatisticEventHandler struct {
 	statistics    map[types.UID]*PodStatistic
 }
 
-func NewStatisticEventHandler() *StatisticEventHandler {
+func NewStatisticEventHandler(
+	initial_sync_blacklist []types.UID,
+) *StatisticEventHandler {
 	return &StatisticEventHandler{
 		EventChan:     make(chan StatisticEvent),
-		blacklistUIDs: []types.UID{},
+		blacklistUIDs: initial_sync_blacklist,
 		statistics:    map[types.UID]*PodStatistic{},
 	}
 }

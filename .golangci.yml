@@ -19,6 +19,7 @@ linters:
     - godox
     - gomnd
     - ireturn
+    - testpackage
 linters-settings:
   stylecheck:
     checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]

@@ -1,4 +1,4 @@
-package main
+package statistics
 
 import (
 	"context"
@@ -16,6 +16,12 @@ import (
 
 type PodCollector struct {
 	eh *StatisticEventHandler
+}
+
+func NewPodCollector(eh *StatisticEventHandler) *PodCollector {
+	return &PodCollector{
+		eh: eh,
+	}
 }
 
 func CollectInitialPods(
