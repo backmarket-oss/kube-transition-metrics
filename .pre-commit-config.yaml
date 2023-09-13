@@ -7,6 +7,7 @@ repos:
   - id: trailing-whitespace
   - id: end-of-file-fixer
   - id: check-yaml
+    exclude: ^charts/kube-transition-metrics/templates/
   - id: check-added-large-files
 - repo: https://github.com/golangci/golangci-lint
   rev: v1.52.2
