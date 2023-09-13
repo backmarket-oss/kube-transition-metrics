@@ -64,6 +64,8 @@ var (
 	)
 )
 
+// Register registers the prometheus Collectors (metrics) exported by this
+// package.
 func Register() {
 	prometheus.MustRegister(
 		POD_COLLECTOR_ERRORS,

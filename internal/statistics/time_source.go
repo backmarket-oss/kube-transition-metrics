@@ -2,12 +2,12 @@ package statistics
 
 import "time"
 
-type TimeSource interface {
+type timeSource interface {
 	Now() time.Time
 }
 
-type RealTimeSource struct{}
+type realTimeSource struct{}
 
-func (rts RealTimeSource) Now() time.Time {
+func (rts realTimeSource) Now() time.Time {
 	return time.Now()
 }

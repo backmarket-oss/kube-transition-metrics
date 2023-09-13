@@ -7,11 +7,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type ContainerStatistic struct {
+type containerStatistic struct {
 	name          string
 	initContainer bool
-	pod           *PodStatistic
-	imagePull     ImagePullStatistic
+	pod           *podStatistic
+	imagePull     imagePullStatistic
 
 	// The timestamp for when the container first turned Running.
 	runningTimestamp time.Time
@@ -25,12 +25,12 @@ type ContainerStatistic struct {
 	readyTimestamp time.Time
 }
 
-func NewContainerStatistic(
-	pod_statistic *PodStatistic,
+func newContainerStatistic(
+	pod_statistic *podStatistic,
 	init_container bool,
 	container corev1.Container,
-) *ContainerStatistic {
-	container_statistic := &ContainerStatistic{
+) *containerStatistic {
+	container_statistic := &containerStatistic{
 		name:          container.Name,
 		initContainer: init_container,
 		pod:           pod_statistic,
@@ -40,13 +40,13 @@ func NewContainerStatistic(
 	return container_statistic
 }
 
-func (cs ContainerStatistic) logger() zerolog.Logger {
+func (cs containerStatistic) logger() zerolog.Logger {
 	return cs.pod.logger().With().
 		Str("container_name", cs.name).
 		Logger()
 }
 
-func (cs ContainerStatistic) event() *zerolog.Event {
+func (cs containerStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
 	event.Bool("init_container", cs.initContainer)
@@ -66,7 +66,7 @@ func (cs ContainerStatistic) event() *zerolog.Event {
 	return event
 }
 
-func (cs ContainerStatistic) report() {
+func (cs containerStatistic) report() {
 	logger := cs.logger()
 
 	event_logger := logger.With().
@@ -76,7 +76,7 @@ func (cs ContainerStatistic) report() {
 	event_logger.Info().Msg("")
 }
 
-func (cs ContainerStatistic) logContainerStatus(status corev1.ContainerStatus) {
+func (cs containerStatistic) logContainerStatus(status corev1.ContainerStatus) {
 	logger := cs.logger()
 
 	switch {
@@ -105,7 +105,7 @@ func (cs ContainerStatistic) logContainerStatus(status corev1.ContainerStatus) {
 	}
 }
 
-func (cs *ContainerStatistic) update(
+func (cs *containerStatistic) update(
 	now time.Time,
 	status corev1.ContainerStatus,
 ) {

@@ -14,16 +14,26 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// PodCollector uses the Kubernetes Watch API to monitor for all changes on Pods
+// and send statistic events to the StatisticEventHandler to track created,
+// modified, and deleted Pods during their lifecycles.
 type PodCollector struct {
 	eh *StatisticEventHandler
 }
 
+// NewPodCollector creates a new PodCollector object using the provided
+// StatisticEventHandler.
 func NewPodCollector(eh *StatisticEventHandler) *PodCollector {
 	return &PodCollector{
 		eh: eh,
 	}
 }
 
+// CollectInitialPods generates a list of Pod UIDs currently existing on the
+// cluster. This is used to filter pre-existing Pods by the
+// StatisticEventHandler to avoid generating inaccurate or incomplete metrics.
+// It returns the list of Pod UIDs, the resource version for these UIDs, and an
+// error if one occurred.
 func CollectInitialPods(
 	clientset *kubernetes.Clientset,
 ) ([]types.UID, string, error) {
@@ -59,21 +69,21 @@ func CollectInitialPods(
 	return blacklist_uids, list.ResourceVersion, nil
 }
 
-type PodAddedEvent struct {
+type podAddedEvent struct {
 	collector *PodCollector
 	pod       *corev1.Pod
 	clientset *kubernetes.Clientset
 }
 
-func (ev *PodAddedEvent) PodUID() types.UID {
+func (ev *podAddedEvent) PodUID() types.UID {
 	return ev.pod.UID
 }
 
-func (ev *PodAddedEvent) Handle(statistic *PodStatistic) bool {
+func (ev *podAddedEvent) Handle(statistic *podStatistic) bool {
 	// As the PodAddedEvent may be called more than once, the initialization must only happen once.
 	if !statistic.Initialized {
-		statistic.Initialize(ev.pod)
-		statistic.ImagePullCollector = NewImagePullCollector(ev.collector.eh, ev.pod.Namespace, ev.pod.UID)
+		statistic.initialize(ev.pod)
+		statistic.ImagePullCollector = newImagePullCollector(ev.collector.eh, ev.pod.Namespace, ev.pod.UID)
 		go statistic.ImagePullCollector.Run(ev.clientset)
 	}
 
@@ -82,29 +92,29 @@ func (ev *PodAddedEvent) Handle(statistic *PodStatistic) bool {
 	return false
 }
 
-type PodModifiedEvent struct {
+type podModifiedEvent struct {
 	pod *corev1.Pod
 }
 
-func (ev *PodModifiedEvent) PodUID() types.UID {
+func (ev *podModifiedEvent) PodUID() types.UID {
 	return ev.pod.UID
 }
 
-func (ev *PodModifiedEvent) Handle(statistic *PodStatistic) bool {
+func (ev *podModifiedEvent) Handle(statistic *podStatistic) bool {
 	statistic.update(ev.pod)
 
 	return false
 }
 
-type PodDeletedEvent struct {
+type podDeletedEvent struct {
 	uid types.UID
 }
 
-func (ev *PodDeletedEvent) PodUID() types.UID {
+func (ev *podDeletedEvent) PodUID() types.UID {
 	return ev.uid
 }
 
-func (ev *PodDeletedEvent) Handle(statistic *PodStatistic) bool {
+func (ev *podDeletedEvent) Handle(statistic *podStatistic) bool {
 	go statistic.ImagePullCollector.cancel("pod_deleted")
 
 	return true
@@ -114,7 +124,7 @@ func (w *PodCollector) handlePod(
 	clientset *kubernetes.Clientset,
 	event_type watch.EventType,
 	pod *corev1.Pod,
-) StatisticEvent {
+) statisticEvent {
 	logger := log.With().
 		Str("kube_namespace", pod.Namespace).
 		Str("pod_name", pod.Name).
@@ -128,17 +138,17 @@ func (w *PodCollector) handlePod(
 	//nolint:exhaustive
 	switch event_type {
 	case watch.Added:
-		return &PodAddedEvent{
+		return &podAddedEvent{
 			clientset: clientset,
 			collector: w,
 			pod:       pod,
 		}
 	case watch.Modified:
-		return &PodModifiedEvent{
+		return &podModifiedEvent{
 			pod: pod,
 		}
 	case watch.Deleted:
-		return &PodDeletedEvent{
+		return &podDeletedEvent{
 			uid: pod.UID,
 		}
 	case watch.Bookmark:
@@ -186,6 +196,10 @@ func (w *PodCollector) watch(
 	}
 }
 
+// Run watches the Kubernetes Pods objects and reports them to the
+// StatisticEventHandler used to initialize the PodCollector. It is blocking and
+// should be run in another goroutine to the StatisticEventHandler and other
+// collectors.
 func (w *PodCollector) Run(
 	clientset *kubernetes.Clientset,
 	resource_version string,

@@ -35,17 +35,17 @@ func (rl *responseLogger) Header() http.Header {
 	return rl.responseWriter.Header()
 }
 
-// ZerologHTTPHandler is a custom request logger middleware.
-type ZerologHTTPHandler struct {
+// Handler is a custom request logger middleware.
+type Handler struct {
 	handler http.Handler
 }
 
-// NewZerologHTTPHandler creates a new ZerologHTTPHandler middleware.
-func NewZerologHTTPHandler(handler http.Handler) *ZerologHTTPHandler {
-	return &ZerologHTTPHandler{handler: handler}
+// NewHandler creates a new Handler middleware.
+func NewHandler(handler http.Handler) *Handler {
+	return &Handler{handler: handler}
 }
 
-func (c *ZerologHTTPHandler) logger() *zerolog.Logger {
+func (c *Handler) logger() *zerolog.Logger {
 	logger := log.With().
 		Str("subsystem", "http").
 		Logger()
@@ -53,7 +53,7 @@ func (c *ZerologHTTPHandler) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (c *ZerologHTTPHandler) ServeHTTP(
+func (c *Handler) ServeHTTP(
 	writer http.ResponseWriter,
 	req *http.Request,
 ) {

@@ -34,8 +34,8 @@ func TestNewPodStatistic(t *testing.T) {
 	}
 
 	// Call the function
-	podStat := PodStatistic{}
-	podStat.Initialize(pod)
+	podStat := podStatistic{}
+	podStat.initialize(pod)
 
 	// Assertions
 	assert.Equal(t, pod.Name, podStat.Name, "Pod name does not match")
@@ -105,8 +105,8 @@ func TestPodStatisticUpdate(t *testing.T) {
 	}
 
 	// 2. Initialize podStatistic and update
-	stat := PodStatistic{}
-	stat.Initialize(pod)
+	stat := podStatistic{}
+	stat.initialize(pod)
 	stat.TimeSource = MockTimeSource{created.Add(3 * time.Second)}
 	stat.update(pod)
 
@@ -195,8 +195,8 @@ func TestContainerStatisticUpdate(t *testing.T) {
 			{Name: "test-container"},
 		},
 	}}
-	podStat := PodStatistic{}
-	podStat.Initialize(pod)
+	podStat := podStatistic{}
+	podStat.initialize(pod)
 	containerStat := podStat.Containers["test-container"]
 	assert.True(t, containerStat.runningTimestamp.IsZero())
 	assert.True(t, containerStat.startedTimestamp.IsZero())

@@ -8,14 +8,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type PodStatistic struct {
+type podStatistic struct {
 	Initialized bool
 
 	Name       string
 	Namespace  string
-	TimeSource TimeSource
+	TimeSource timeSource
 
-	ImagePullCollector ImagePullCollector
+	ImagePullCollector imagePullCollector
 
 	// The timestamp for when the pod was created, same as timestamp of when pod
 	// was in Pending and containers were Waiting.
@@ -30,38 +30,38 @@ type PodStatistic struct {
 	// The timestamp for when the pod first turned Ready.
 	ReadyTimestamp time.Time
 
-	InitContainers map[string]*ContainerStatistic
-	Containers     map[string]*ContainerStatistic
+	InitContainers map[string]*containerStatistic
+	Containers     map[string]*containerStatistic
 }
 
-func (s *PodStatistic) Initialize(pod *corev1.Pod) {
+func (s *podStatistic) initialize(pod *corev1.Pod) {
 	if s.Initialized {
 		return
 	}
 	s.Initialized = true
-	s.TimeSource = RealTimeSource{}
+	s.TimeSource = realTimeSource{}
 	s.Name = pod.Name
 	s.Namespace = pod.Namespace
 	s.CreationTimestamp = pod.CreationTimestamp.Time
-	s.InitContainers = make(map[string]*ContainerStatistic)
-	s.Containers = make(map[string]*ContainerStatistic)
+	s.InitContainers = make(map[string]*containerStatistic)
+	s.Containers = make(map[string]*containerStatistic)
 
 	for _, container := range pod.Spec.InitContainers {
-		s.InitContainers[container.Name] = NewContainerStatistic(s, true, container)
+		s.InitContainers[container.Name] = newContainerStatistic(s, true, container)
 	}
 	for _, container := range pod.Spec.Containers {
-		s.Containers[container.Name] = NewContainerStatistic(s, false, container)
+		s.Containers[container.Name] = newContainerStatistic(s, false, container)
 	}
 }
 
-func (s PodStatistic) logger() zerolog.Logger {
+func (s podStatistic) logger() zerolog.Logger {
 	return log.With().
 		Str("kube_namespace", s.Namespace).
 		Str("pod_name", s.Name).
 		Logger()
 }
 
-func (s PodStatistic) event() *zerolog.Event {
+func (s podStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
 	if !s.ScheduledTimestamp.IsZero() {
@@ -83,7 +83,7 @@ func (s PodStatistic) event() *zerolog.Event {
 	return event
 }
 
-func (s PodStatistic) report() {
+func (s podStatistic) report() {
 	logger := s.logger()
 
 	event_logger := logger.With().
@@ -99,7 +99,7 @@ func (s PodStatistic) report() {
 	}
 }
 
-func (s *PodStatistic) update(pod *corev1.Pod) {
+func (s *podStatistic) update(pod *corev1.Pod) {
 	logger := s.logger()
 
 	for _, condition := range pod.Status.Conditions {
@@ -133,7 +133,7 @@ func (s *PodStatistic) update(pod *corev1.Pod) {
 	s.updateContainers(pod)
 }
 
-func (s *PodStatistic) updateContainers(pod *corev1.Pod) {
+func (s *podStatistic) updateContainers(pod *corev1.Pod) {
 	now := s.TimeSource.Now()
 
 	logger := s.logger()

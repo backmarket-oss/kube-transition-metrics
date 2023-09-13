@@ -36,7 +36,7 @@ func main() {
 	go pod_collector.Run(clientset, resource_version)
 
 	http.Handle("/metrics", promhttp.Handler())
-	handler := zerologhttp.NewZerologHTTPHandler(http.DefaultServeMux)
+	handler := zerologhttp.NewHandler(http.DefaultServeMux)
 	// No timeouts can be set, but that's OK for us as this HTTP server will not be
 	// exposed publicly.
 	//nolint:gosec

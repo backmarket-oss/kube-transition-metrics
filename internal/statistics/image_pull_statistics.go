@@ -6,14 +6,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type ImagePullStatistic struct {
-	container *ContainerStatistic
+type imagePullStatistic struct {
+	container *containerStatistic
 
 	startedAt  time.Time
 	finishedAt time.Time
 }
 
-func (s ImagePullStatistic) log(message string) {
+func (s imagePullStatistic) log(message string) {
 	metrics := zerolog.Dict()
 	metrics.Bool("init_container", s.container.initContainer)
 	if !s.finishedAt.IsZero() && !s.startedAt.IsZero() {

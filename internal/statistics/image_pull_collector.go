@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ImagePullCollector struct {
+type imagePullCollector struct {
 	canceled   *atomic.Bool
 	cancelChan chan string
 	eh         *StatisticEventHandler
@@ -27,12 +27,12 @@ type ImagePullCollector struct {
 	podUID     types.UID
 }
 
-func NewImagePullCollector(
+func newImagePullCollector(
 	event_handler *StatisticEventHandler,
 	namespace string,
 	pod_uid types.UID,
-) ImagePullCollector {
-	return ImagePullCollector{
+) imagePullCollector {
+	return imagePullCollector{
 		canceled:   &atomic.Bool{},
 		cancelChan: make(chan string),
 		eh:         event_handler,
@@ -42,7 +42,7 @@ func NewImagePullCollector(
 }
 
 // Should be run in goroutine to avoid blocking.
-func (c ImagePullCollector) cancel(reason string) {
+func (c imagePullCollector) cancel(reason string) {
 	logger := c.logger()
 
 	// Sleep for a bit to allow any pending events to flush.
@@ -57,7 +57,7 @@ func (c ImagePullCollector) cancel(reason string) {
 	}
 }
 
-func (c ImagePullCollector) logger() *zerolog.Logger {
+func (c imagePullCollector) logger() *zerolog.Logger {
 	logger := log.With().
 		Str("subsystem", "image_pull_collector").
 		Str("kube_namespace", c.namespace).
@@ -67,7 +67,7 @@ func (c ImagePullCollector) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (c ImagePullCollector) parseContainerName(
+func (c imagePullCollector) parseContainerName(
 	field_ref string,
 ) (bool, string) {
 	r := regexp.MustCompile(`^spec\.((?:initC|c)ontainers)\{(.*)\}$`)
@@ -85,18 +85,18 @@ func (c ImagePullCollector) parseContainerName(
 	return matches[1] == "initContainers", matches[2]
 }
 
-type ImagePullingEvent struct {
+type imagePullingEvent struct {
 	containerName string
 	initContainer bool
 	event         *corev1.Event
-	collector     *ImagePullCollector
+	collector     *imagePullCollector
 }
 
-func (ev ImagePullingEvent) PodUID() types.UID {
+func (ev imagePullingEvent) PodUID() types.UID {
 	return ev.collector.podUID
 }
 
-func (ev ImagePullingEvent) logger() *zerolog.Logger {
+func (ev imagePullingEvent) logger() *zerolog.Logger {
 	logger := ev.collector.logger().
 		With().
 		Str("image_pull_event_type", "image_pulling").
@@ -107,10 +107,10 @@ func (ev ImagePullingEvent) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (ev ImagePullingEvent) Handle(statistic *PodStatistic) bool {
+func (ev imagePullingEvent) Handle(statistic *podStatistic) bool {
 	logger := ev.logger()
 
-	var container_statistic *ContainerStatistic
+	var container_statistic *containerStatistic
 	if ev.initContainer {
 		var ok bool
 		container_statistic, ok = statistic.InitContainers[ev.containerName]
@@ -144,18 +144,18 @@ func (ev ImagePullingEvent) Handle(statistic *PodStatistic) bool {
 	return false
 }
 
-type ImagePulledEvent struct {
+type imagePulledEvent struct {
 	containerName string
 	initContainer bool
 	event         *corev1.Event
-	collector     *ImagePullCollector
+	collector     *imagePullCollector
 }
 
-func (ev ImagePulledEvent) PodUID() types.UID {
+func (ev imagePulledEvent) PodUID() types.UID {
 	return ev.collector.podUID
 }
 
-func (ev ImagePulledEvent) logger() *zerolog.Logger {
+func (ev imagePulledEvent) logger() *zerolog.Logger {
 	logger := ev.collector.logger().
 		With().
 		Str("image_pull_event_type", "image_pulled").
@@ -166,10 +166,10 @@ func (ev ImagePulledEvent) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (ev ImagePulledEvent) Handle(statistic *PodStatistic) bool {
+func (ev imagePulledEvent) Handle(statistic *podStatistic) bool {
 	logger := ev.logger()
 
-	var container_statistic *ContainerStatistic
+	var container_statistic *containerStatistic
 	if ev.initContainer {
 		var ok bool
 		container_statistic, ok = statistic.InitContainers[ev.containerName]
@@ -202,10 +202,10 @@ func (ev ImagePulledEvent) Handle(statistic *PodStatistic) bool {
 	return false
 }
 
-func (c ImagePullCollector) handleEvent(
+func (c imagePullCollector) handleEvent(
 	event_type watch.EventType,
 	event *corev1.Event,
-) StatisticEvent {
+) statisticEvent {
 	logger := c.logger()
 
 	if event_type != watch.Added {
@@ -223,14 +223,14 @@ func (c ImagePullCollector) handleEvent(
 			return nil
 		}
 		if event.Reason == "Pulling" {
-			return &ImagePullingEvent{
+			return &imagePullingEvent{
 				initContainer: init_container,
 				containerName: container_name,
 				event:         event,
 				collector:     &c,
 			}
 		} else if event.Reason == "Pulled" {
-			return &ImagePulledEvent{
+			return &imagePulledEvent{
 				initContainer: init_container,
 				containerName: container_name,
 				event:         event,
@@ -244,7 +244,7 @@ func (c ImagePullCollector) handleEvent(
 	return nil
 }
 
-func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
+func (c imagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 	logger := c.logger()
 
 	var event *corev1.Event
@@ -267,7 +267,7 @@ func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 	return false
 }
 
-func (c ImagePullCollector) watch(clientset *kubernetes.Clientset) bool {
+func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	logger := c.logger()
 
 	watch_ops := c.watchOptions()
@@ -300,7 +300,7 @@ func (c ImagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	}
 }
 
-func (c ImagePullCollector) watchOptions() metav1.ListOptions {
+func (c imagePullCollector) watchOptions() metav1.ListOptions {
 	time_out := int64(60)
 	send_initial_events := true
 	watch_ops := metav1.ListOptions{
@@ -318,7 +318,7 @@ func (c ImagePullCollector) watchOptions() metav1.ListOptions {
 	return watch_ops
 }
 
-func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
+func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	logger := c.logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
