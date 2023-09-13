@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -55,7 +56,7 @@ func (eh *StatisticEventHandler) Run() {
 			delete(eh.statistics, uid)
 		}
 
-		PODS_TRACKED.Set(float64(len(eh.statistics)))
-		EVENTS_HANDLED.Inc()
+		prommetrics.PODS_TRACKED.Set(float64(len(eh.statistics)))
+		prommetrics.EVENTS_HANDLED.Inc()
 	}
 }

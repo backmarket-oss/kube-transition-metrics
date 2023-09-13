@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -250,7 +251,7 @@ func (c ImagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 	var is_event bool
 	if watch_event.Type == watch.Error {
 		logger.Error().Msgf("Watch event error: %+v", watch_event)
-		IMAGE_PULL_COLLECTOR_ERRORS.Inc()
+		prommetrics.IMAGE_PULL_COLLECTOR_ERRORS.Inc()
 
 		return true
 	} else if event, is_event = watch_event.Object.(*corev1.Event); !is_event {
@@ -285,7 +286,7 @@ func (c ImagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 			}
 
 			should_break := c.handleWatchEvent(watch_event)
-			EVENTS_PROCESSED.
+			prommetrics.EVENTS_PROCESSED.
 				With(prometheus.Labels{"event_type": string(watch_event.Type)}).
 				Inc()
 			if should_break {
@@ -321,10 +322,10 @@ func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 	logger := c.logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
-	IMAGE_PULL_COLLECTOR_ROUTINES.Inc()
+	prommetrics.IMAGE_PULL_COLLECTOR_ROUTINES.Inc()
 	defer func() {
 		logger.Debug().Msg("Stopped ImagePullCollector.")
-		IMAGE_PULL_COLLECTOR_ROUTINES.Dec()
+		prommetrics.IMAGE_PULL_COLLECTOR_ROUTINES.Dec()
 	}()
 
 	for {
@@ -333,6 +334,6 @@ func (c ImagePullCollector) Run(clientset *kubernetes.Clientset) {
 		}
 
 		logger.Warn().Msg("Watch ended, restarting. Some events may be lost.")
-		IMAGE_PULL_COLLECTOR_RESTARTS.Inc()
+		prommetrics.IMAGE_PULL_COLLECTOR_RESTARTS.Inc()
 	}
 }

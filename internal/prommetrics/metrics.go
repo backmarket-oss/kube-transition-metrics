@@ -1,4 +1,4 @@
-package main
+package prommetrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
@@ -64,7 +64,7 @@ var (
 	)
 )
 
-func registerPrometheusMetrics() {
+func Register() {
 	prometheus.MustRegister(
 		POD_COLLECTOR_ERRORS,
 		POD_COLLECTOR_RESTARTS,

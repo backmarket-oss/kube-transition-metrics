@@ -6,6 +6,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
@@ -13,7 +14,7 @@ import (
 )
 
 func main() {
-	registerPrometheusMetrics()
+	prommetrics.Register()
 
 	config, _ := clientcmd.
 		BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))

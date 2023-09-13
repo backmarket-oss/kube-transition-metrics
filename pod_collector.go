@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
@@ -166,7 +167,7 @@ func (w *PodCollector) watch(
 		var is_a_pod bool
 		if event.Type == watch.Error {
 			log.Error().Msgf("Watch event error: %+v", event)
-			POD_COLLECTOR_ERRORS.Inc()
+			prommetrics.POD_COLLECTOR_ERRORS.Inc()
 
 			break
 		} else if pod, is_a_pod = event.Object.(*corev1.Pod); !is_a_pod {
@@ -175,7 +176,7 @@ func (w *PodCollector) watch(
 			w.eh.EventChan <- event
 		}
 
-		PODS_PROCESSED.With(prometheus.Labels{"event_type": string(event.Type)}).Inc()
+		prommetrics.PODS_PROCESSED.With(prometheus.Labels{"event_type": string(event.Type)}).Inc()
 	}
 }
 
@@ -190,7 +191,7 @@ func (w *PodCollector) Run(
 		// events may be lost. This could be mitigated by performing another full List
 		// and checking for removed pod UIDs.
 		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
-		POD_COLLECTOR_RESTARTS.Inc()
+		prommetrics.POD_COLLECTOR_RESTARTS.Inc()
 		resource_version = ""
 	}
 }
