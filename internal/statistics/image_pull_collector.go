@@ -280,6 +280,10 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 
 	for {
 		select {
+		case reason := <-c.cancelChan:
+			logger.Debug().Msgf("Received cancel event: %s", reason)
+
+			return true
 		case watch_event, watcher_open := <-watcher.ResultChan():
 			if !watcher_open {
 				return false
@@ -292,10 +296,6 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 			if should_break {
 				return false
 			}
-		case reason := <-c.cancelChan:
-			logger.Debug().Msgf("Received cancel event: %s", reason)
-
-			return true
 		}
 	}
 }
