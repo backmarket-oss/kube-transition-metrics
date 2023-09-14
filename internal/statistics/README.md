@@ -133,6 +133,6 @@ Kubelet.
   "time": "2023-09-14T15:13:22Z",
   "kube_namespace": "default",
   "pod_name": "my-pod-28245073-nzpvm"
-  "message": "Successfully pulled image "ghcr.io/backmarket-oss/kube-transition-metrics:latest" in 15094.782505ms (15273.331032ms including waiting)"
+  "message": "Successfully pulled image \"ghcr.io/backmarket-oss/kube-transition-metrics:latest\" in 15094.782505ms (15273.331032ms including waiting)"
 }
 ```
