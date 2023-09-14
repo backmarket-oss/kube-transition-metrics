@@ -7,7 +7,8 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - main: ./cmd/kube-transition-metrics/
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
