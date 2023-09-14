@@ -80,10 +80,15 @@ func (ev *podAddedEvent) PodUID() types.UID {
 }
 
 func (ev *podAddedEvent) Handle(statistic *podStatistic) bool {
-	// As the PodAddedEvent may be called more than once, the initialization must only happen once.
+	// As the PodAddedEvent may be called more than once, the initialization must
+	// only happen once.
 	if !statistic.Initialized {
 		statistic.initialize(ev.pod)
-		statistic.ImagePullCollector = newImagePullCollector(ev.collector.eh, ev.pod.Namespace, ev.pod.UID)
+		statistic.ImagePullCollector = newImagePullCollector(
+			ev.collector.eh,
+			ev.pod.Namespace,
+			ev.pod.UID,
+		)
 		go statistic.ImagePullCollector.Run(ev.clientset)
 	}
 
@@ -189,10 +194,12 @@ func (w *PodCollector) watch(
 		} else if pod, is_a_pod = event.Object.(*corev1.Pod); !is_a_pod {
 			log.Panic().Msgf("Watch event is not a Pod: %+v", event)
 		} else if event := w.handlePod(clientset, event.Type, pod); event != nil {
-			w.eh.EventChan <- event
+			w.eh.Publish(event)
 		}
 
-		prommetrics.PODS_PROCESSED.With(prometheus.Labels{"event_type": string(event.Type)}).Inc()
+		prommetrics.PODS_PROCESSED.With(
+			prometheus.Labels{"event_type": string(event.Type)},
+		).Inc()
 	}
 }
 

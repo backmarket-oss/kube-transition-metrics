@@ -261,7 +261,7 @@ func (c imagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 		logger.Debug().Msgf(
 			"Publish event: %s", reflect.TypeOf(statistic_event).String(),
 		)
-		c.eh.EventChan <- statistic_event
+		c.eh.Publish(statistic_event)
 	}
 
 	return false

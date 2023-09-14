@@ -62,6 +62,13 @@ var (
 			Help: "Total number of statistic events handled since the last restart",
 		},
 	)
+	EVENT_PUBLISH_WAIT_DURATION = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "statistic_event_publish_wait_total",
+			Help: "Total amount of time in seconds waiting to publish a statistic " +
+				"event from a collector",
+		},
+	)
 )
 
 // Register registers the prometheus Collectors (metrics) exported by this
@@ -77,5 +84,6 @@ func Register() {
 		EVENTS_PROCESSED,
 		PODS_TRACKED,
 		EVENTS_HANDLED,
+		EVENT_PUBLISH_WAIT_DURATION,
 	)
 }
