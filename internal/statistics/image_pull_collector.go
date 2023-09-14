@@ -46,7 +46,7 @@ func (c imagePullCollector) cancel(reason string) {
 	logger := c.logger()
 
 	// Sleep for a bit to allow any pending events to flush.
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * time.Duration(c.eh.options.ImagePullCancelDelay))
 
 	if !c.canceled.Swap(true) {
 		logger.Debug().Msgf("Canceling collector: %s", reason)
@@ -301,13 +301,13 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 }
 
 func (c imagePullCollector) watchOptions() metav1.ListOptions {
-	time_out := int64(60)
+	time_out := c.eh.options.KubeWatchTimeout
 	send_initial_events := true
 	watch_ops := metav1.ListOptions{
 		TimeoutSeconds:    &time_out,
 		SendInitialEvents: &send_initial_events,
 		Watch:             true,
-		Limit:             100,
+		Limit:             c.eh.options.KubeWatchMaxEvents,
 		FieldSelector: fields.Set(
 			map[string]string{
 				"involvedObject.uid": string(c.podUID),

@@ -1,6 +1,7 @@
 package statistics
 
 import (
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -13,6 +14,7 @@ type statisticEvent interface {
 // StatisticEventHandler loops over statistic events sent by collectors to track
 // and update metrics for Pod lifecycle events.
 type StatisticEventHandler struct {
+	options       *options.Options
 	eventChan     prommetrics.MonitoredChannel[statisticEvent]
 	blacklistUIDs []types.UID
 	statistics    map[types.UID]*podStatistic
@@ -21,11 +23,13 @@ type StatisticEventHandler struct {
 // NewStatisticEventHandler creates a new StatisticEventHandler which filters
 // out events for the provided initial_sync_blacklist Pod UIDs.
 func NewStatisticEventHandler(
+	options *options.Options,
 	initial_sync_blacklist []types.UID,
 ) *StatisticEventHandler {
 	return &StatisticEventHandler{
+		options: options,
 		eventChan: prommetrics.NewMonitoredChannel[statisticEvent](
-			"statistic_events", 1000),
+			"statistic_events", options.StatisticEventQueueLength),
 		blacklistUIDs: initial_sync_blacklist,
 		statistics:    map[types.UID]*podStatistic{},
 	}

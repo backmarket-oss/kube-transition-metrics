@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -23,7 +24,9 @@ type PodCollector struct {
 
 // NewPodCollector creates a new PodCollector object using the provided
 // StatisticEventHandler.
-func NewPodCollector(eh *StatisticEventHandler) *PodCollector {
+func NewPodCollector(
+	eh *StatisticEventHandler,
+) *PodCollector {
 	return &PodCollector{
 		eh: eh,
 	}
@@ -35,10 +38,14 @@ func NewPodCollector(eh *StatisticEventHandler) *PodCollector {
 // It returns the list of Pod UIDs, the resource version for these UIDs, and an
 // error if one occurred.
 func CollectInitialPods(
+	options *options.Options,
 	clientset *kubernetes.Clientset,
 ) ([]types.UID, string, error) {
-	time_out := int64(60)
-	list_options := metav1.ListOptions{TimeoutSeconds: &time_out, Limit: 100}
+	time_out := options.KubeWatchTimeout
+	list_options := metav1.ListOptions{
+		TimeoutSeconds: &time_out,
+		Limit:          options.KubeWatchMaxEvents,
+	}
 
 	blacklist_uids := make([]types.UID, 0)
 	log.Info().Msg("Listing pods to get initial state ...")
@@ -167,14 +174,14 @@ func (w *PodCollector) watch(
 	clientset *kubernetes.Clientset,
 	resource_version string,
 ) {
-	time_out := int64(60)
+	time_out := w.eh.options.KubeWatchTimeout
 	send_initial_events := resource_version != ""
 	watch_ops := metav1.ListOptions{
 		TimeoutSeconds:    &time_out,
 		SendInitialEvents: &send_initial_events,
 		Watch:             true,
 		ResourceVersion:   resource_version,
-		Limit:             100,
+		Limit:             w.eh.options.KubeWatchMaxEvents,
 	}
 	watcher, err :=
 		clientset.CoreV1().Pods("").Watch(context.Background(), watch_ops)

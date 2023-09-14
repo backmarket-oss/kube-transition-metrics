@@ -6,6 +6,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/zerologhttp"
@@ -18,17 +19,25 @@ import (
 func main() {
 	prommetrics.Register()
 
+	options := options.Parse()
+
+	kubeconfig_path := os.Getenv("HOME") + "/.kube/config"
+	if options.KubeconfigPath != "" {
+		kubeconfig_path = options.KubeconfigPath
+	} else if value, present := os.LookupEnv("KUBECONFIG"); present {
+		kubeconfig_path = value
+	}
 	config, _ := clientcmd.
-		BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
+		BuildConfigFromFlags("", kubeconfig_path)
 	clientset, _ := kubernetes.NewForConfig(config)
 
 	initial_sync_blacklist, resource_version, err :=
-		statistics.CollectInitialPods(clientset)
+		statistics.CollectInitialPods(options, clientset)
 	if err != nil {
 		panic(err)
 	}
 
-	event_handler := statistics.NewStatisticEventHandler(initial_sync_blacklist)
+	event_handler := statistics.NewStatisticEventHandler(options, initial_sync_blacklist)
 
 	go event_handler.Run()
 
@@ -40,7 +49,7 @@ func main() {
 	// No timeouts can be set, but that's OK for us as this HTTP server will not be
 	// exposed publicly.
 	//nolint:gosec
-	if err := http.ListenAndServe("0.0.0.0:8080", handler); err != nil {
+	if err := http.ListenAndServe(options.ListenAddress, handler); err != nil {
 		log.Panic().Err(err).Msg(err.Error())
 	}
 }

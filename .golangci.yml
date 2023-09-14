@@ -18,7 +18,6 @@ linters:
     - gofumpt
     - wsl
     - godox
-    - gomnd
     - ireturn
     - testpackage
 linters-settings:
