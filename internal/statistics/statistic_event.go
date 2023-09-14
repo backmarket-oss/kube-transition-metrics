@@ -60,7 +60,12 @@ func (eh *StatisticEventHandler) getPodStatistic(uid types.UID) *podStatistic {
 // run in another goroutine to each of the collectors. It provides synchronous
 // and ordered execution of statistic events.
 func (eh *StatisticEventHandler) Run() {
-	for event := range eh.eventChan.Chan() {
+	for {
+		event, ok := eh.eventChan.Read()
+		if !ok {
+			break
+		}
+
 		uid := event.PodUID()
 		if eh.isBlacklisted(uid) {
 			continue
