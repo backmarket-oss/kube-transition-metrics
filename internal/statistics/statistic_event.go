@@ -1,8 +1,6 @@
 package statistics
 
 import (
-	"time"
-
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -15,7 +13,7 @@ type statisticEvent interface {
 // StatisticEventHandler loops over statistic events sent by collectors to track
 // and update metrics for Pod lifecycle events.
 type StatisticEventHandler struct {
-	eventChan     chan statisticEvent
+	eventChan     prommetrics.MonitoredChannel[statisticEvent]
 	blacklistUIDs []types.UID
 	statistics    map[types.UID]*podStatistic
 }
@@ -26,7 +24,8 @@ func NewStatisticEventHandler(
 	initial_sync_blacklist []types.UID,
 ) *StatisticEventHandler {
 	return &StatisticEventHandler{
-		eventChan:     make(chan statisticEvent),
+		eventChan: prommetrics.NewMonitoredChannel[statisticEvent](
+			"statistic_events", 1000),
 		blacklistUIDs: initial_sync_blacklist,
 		statistics:    map[types.UID]*podStatistic{},
 	}
@@ -34,12 +33,7 @@ func NewStatisticEventHandler(
 
 // Publish sends an event to the StatisticEventHandler loop.
 func (eh StatisticEventHandler) Publish(ev statisticEvent) {
-	start := time.Now()
-	eh.eventChan <- ev
-	end := time.Now()
-
-	wait_duration := end.Sub(start)
-	prommetrics.EVENT_PUBLISH_WAIT_DURATION.Add(wait_duration.Seconds())
+	eh.eventChan.Publish(ev)
 }
 
 func (eh StatisticEventHandler) isBlacklisted(uid types.UID) bool {
@@ -66,7 +60,7 @@ func (eh *StatisticEventHandler) getPodStatistic(uid types.UID) *podStatistic {
 // run in another goroutine to each of the collectors. It provides synchronous
 // and ordered execution of statistic events.
 func (eh *StatisticEventHandler) Run() {
-	for event := range eh.eventChan {
+	for event := range eh.eventChan.Chan() {
 		uid := event.PodUID()
 		if eh.isBlacklisted(uid) {
 			continue
