@@ -21,9 +21,26 @@ your `~/.kube/config` file (i.e. whatever cluster kubectl cluster-info shows).
 go run .
 ```
 
+## Available metrics
+
+Read about the available metrics here:
+[internal/statistics/README.md](internal/statistics/README.md).
+
 ## Contributing
 
 Send a pull request!
+
+## Debugging
+
+`promhttp` is used to publish some metrics about the internals of the
+controller.
+These metrics are distinct from the pod life-cycle timeline statistics.
+
+See details about the internal observability here:
+[internal/prommetrics/README.md](internal/prommetrics/README.md).
+
+`pprof` is also instrumented through the `/debug/pprof/` endpoints, see
+[net/http/pprof](https://pkg.go.dev/net/http/pprof).
 
 ## License
 Copyright 2023.
