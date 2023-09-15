@@ -5,8 +5,8 @@
 replicaCount: 1
 
 image:
-  repository: ""
-  pullPolicy: Always
+  repository: "ghcr.io/backmarket-oss/kube-transition-metrics"
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 

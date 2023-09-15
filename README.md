@@ -21,6 +21,50 @@ your `~/.kube/config` file (i.e. whatever cluster kubectl cluster-info shows).
 go run .
 ```
 
+See:
+[cmd/kube-transition-metrics/README.md](cmd/kube-transition-metrics/README.md)
+for more information on usage.
+
+The helm chart in `charts/kube-transition-metrics` can be applied to run this
+controller in-cluster.
+
+```sh
+helm install \
+    --values ./charts/kube-transition-metrics/values.yaml \
+    --namespace kube-monitoring \
+    kube-transition-metrics ./charts/kube-transition-metrics
+```
+
+Reasonable resource requests and limits may be:
+
+```yaml
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 20m
+    memory: 58Mi
+```
+
+Annotations to configure DataDog agent to scrape Prometheus/OpenMetrics metrics
+are as follows:
+
+```yaml
+podAnnotations:
+  ad.datadoghq.com/kube-transition-monitoring.checks: |
+    {
+      "openmetrics": {
+        "init_config": {},
+        "instances": [{
+          "openmetrics_endpoint": "http://%%host%%:8080/metrics",
+          "namespace": "kube_transition",
+          "metrics": [".*"]
+        }]
+      }
+    }
+```
+
 ## Available metrics
 
 Read about the available metrics here:
