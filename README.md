@@ -30,7 +30,10 @@ Read about the available metrics here:
 
 Send a pull request!
 
-## Debugging
+## Hacking
+
+Read the [Architecture](doc/ARCHITECTURE.md) design document for a high-level
+overview.
 
 `promhttp` is used to publish some metrics about the internals of the
 controller.
