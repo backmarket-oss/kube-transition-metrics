@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -38,14 +39,14 @@ func TestNewPodStatistic(t *testing.T) {
 	podStat.initialize(pod)
 
 	// Assertions
-	assert.Equal(t, pod.Name, podStat.Name, "Pod name does not match")
+	assert.Equal(t, pod.Name, podStat.name, "Pod name does not match")
 	assert.Equal(t,
-		pod.Namespace, podStat.Namespace, "Pod namespace does not match")
+		pod.Namespace, podStat.namespace, "Pod namespace does not match")
 	assert.WithinDuration(t,
-		pod.CreationTimestamp.Time, podStat.CreationTimestamp, time.Millisecond,
+		pod.CreationTimestamp.Time, podStat.creationTimestamp, time.Millisecond,
 		"Pod creation timestamps do not match")
-	assert.Empty(t, podStat.InitContainers, "Expected no init containers")
-	assert.Empty(t, podStat.Containers, "Expected no containers")
+	assert.Empty(t, podStat.initContainers, "Expected no init containers")
+	assert.Empty(t, podStat.containers, "Expected no containers")
 }
 
 type MockTimeSource struct {
@@ -104,16 +105,40 @@ func TestPodStatisticUpdate(t *testing.T) {
 		},
 	}
 
-	// 2. Initialize podStatistic and update
 	stat := podStatistic{}
 	stat.initialize(pod)
-	stat.TimeSource = MockTimeSource{created.Add(3 * time.Second)}
+
+	// Stub time source to fix time to constant for testing
+	stat.timeSource = MockTimeSource{created.Add(3 * time.Second)}
+
+	// Stub StatisticEventHandler
+	eh := &StatisticEventHandler{
+		options: &options.Options{},
+	}
+	stat.imagePullCollector = newImagePullCollector(eh, "", pod.UID)
+
+	// Update the pod statistic for the "new" state
 	stat.update(pod)
 
-	// 3. Validate updated fields
-	assert.NotZero(t, stat.ScheduledTimestamp, "scheduledTimestamp was not set")
-	assert.NotZero(t, stat.InitializedTimestamp, "initializedTimestamp was not set")
-	assert.NotEmpty(t, stat.Containers, "containers map was not populated")
+	assert.NotZero(t, stat.scheduledTimestamp, "scheduledTimestamp was not set")
+	assert.NotZero(
+		t, stat.initializedTimestamp, "initializedTimestamp was not set")
+	assert.NotEmpty(t, stat.containers, "containers map was not populated")
+
+	// Check that the imagePullCollector would have been canceled for the right
+	// reasons upon pod initialization.
+	select {
+	case s := <-stat.imagePullCollector.cancelChan:
+		assert.Equal(
+			t, "pod_initialized", s,
+			"ImagePullCollector cancel channel received erroneous cancel reason")
+		assert.True(
+			t, stat.imagePullCollector.canceled.Load(),
+			"ImagePullCollector cancel chan written to without setting canceled true")
+	case <-time.NewTimer(time.Second).C:
+		assert.Fail(
+			t, "ImagePullCollector cancel channel was not written to within 1 second")
+	}
 
 	decoder := json.NewDecoder(buf)
 	statisticLogs := make([]map[string]interface{}, 0)
@@ -197,7 +222,7 @@ func TestContainerStatisticUpdate(t *testing.T) {
 	}}
 	podStat := podStatistic{}
 	podStat.initialize(pod)
-	containerStat := podStat.Containers["test-container"]
+	containerStat := podStat.containers["test-container"]
 	assert.True(t, containerStat.runningTimestamp.IsZero())
 	assert.True(t, containerStat.startedTimestamp.IsZero())
 	assert.True(t, containerStat.readyTimestamp.IsZero())

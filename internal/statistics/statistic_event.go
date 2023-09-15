@@ -7,8 +7,8 @@ import (
 )
 
 type statisticEvent interface {
-	Handle(statistic *podStatistic) bool
-	PodUID() types.UID
+	handle(statistic *podStatistic) bool
+	podUID() types.UID
 }
 
 // StatisticEventHandler loops over statistic events sent by collectors to track
@@ -70,13 +70,13 @@ func (eh *StatisticEventHandler) Run() {
 			break
 		}
 
-		uid := event.PodUID()
+		uid := event.podUID()
 		if eh.isBlacklisted(uid) {
 			continue
 		}
 
 		statistic := eh.getPodStatistic(uid)
-		if event.Handle(statistic) {
+		if event.handle(statistic) {
 			delete(eh.statistics, uid)
 		}
 

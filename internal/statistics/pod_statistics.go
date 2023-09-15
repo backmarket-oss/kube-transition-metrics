@@ -9,75 +9,75 @@ import (
 )
 
 type podStatistic struct {
-	Initialized bool
+	initialized bool
 
-	Name       string
-	Namespace  string
-	TimeSource timeSource
+	name       string
+	namespace  string
+	timeSource timeSource
 
-	ImagePullCollector imagePullCollector
+	imagePullCollector imagePullCollector
 
 	// The timestamp for when the pod was created, same as timestamp of when pod
 	// was in Pending and containers were Waiting.
-	CreationTimestamp time.Time
+	creationTimestamp time.Time
 
 	// The timestamp for when the pod was scheduled.
-	ScheduledTimestamp time.Time
+	scheduledTimestamp time.Time
 
 	// The timestamp for when the pod was initialized.
-	InitializedTimestamp time.Time
+	initializedTimestamp time.Time
 
 	// The timestamp for when the pod first turned Ready.
-	ReadyTimestamp time.Time
+	readyTimestamp time.Time
 
-	InitContainers map[string]*containerStatistic
-	Containers     map[string]*containerStatistic
+	initContainers map[string]*containerStatistic
+	containers     map[string]*containerStatistic
 }
 
 func (s *podStatistic) initialize(pod *corev1.Pod) {
-	if s.Initialized {
+	if s.initialized {
 		return
 	}
-	s.Initialized = true
-	s.TimeSource = realTimeSource{}
-	s.Name = pod.Name
-	s.Namespace = pod.Namespace
-	s.CreationTimestamp = pod.CreationTimestamp.Time
-	s.InitContainers = make(map[string]*containerStatistic)
-	s.Containers = make(map[string]*containerStatistic)
+	s.initialized = true
+	s.timeSource = realTimeSource{}
+	s.name = pod.Name
+	s.namespace = pod.Namespace
+	s.creationTimestamp = pod.CreationTimestamp.Time
+	s.initContainers = make(map[string]*containerStatistic)
+	s.containers = make(map[string]*containerStatistic)
 
 	for _, container := range pod.Spec.InitContainers {
-		s.InitContainers[container.Name] = newContainerStatistic(s, true, container)
+		s.initContainers[container.Name] = newContainerStatistic(s, true, container)
 	}
 	for _, container := range pod.Spec.Containers {
-		s.Containers[container.Name] = newContainerStatistic(s, false, container)
+		s.containers[container.Name] = newContainerStatistic(s, false, container)
 	}
 }
 
 func (s podStatistic) logger() zerolog.Logger {
 	return log.With().
-		Str("kube_namespace", s.Namespace).
-		Str("pod_name", s.Name).
+		Str("kube_namespace", s.namespace).
+		Str("pod_name", s.name).
 		Logger()
 }
 
 func (s podStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
-	if !s.ScheduledTimestamp.IsZero() {
+	if !s.scheduledTimestamp.IsZero() {
 		event.Float64(
 			"scheduled_latency",
-			s.ScheduledTimestamp.Sub(s.CreationTimestamp).Seconds())
+			s.scheduledTimestamp.Sub(s.creationTimestamp).Seconds())
 	}
-	if !s.InitializedTimestamp.IsZero() {
+	if !s.initializedTimestamp.IsZero() {
 		event.Float64(
 			"initialized_latency",
-			s.InitializedTimestamp.Sub(s.CreationTimestamp).Seconds())
+			s.initializedTimestamp.Sub(s.creationTimestamp).Seconds())
 	}
-	if !s.ReadyTimestamp.IsZero() {
+	if !s.readyTimestamp.IsZero() {
 		event.Float64(
 			"ready_latency",
-			s.ReadyTimestamp.Sub(s.CreationTimestamp).Seconds())
+			s.readyTimestamp.Sub(s.creationTimestamp).Seconds())
 	}
 
 	return event
@@ -91,10 +91,10 @@ func (s podStatistic) report() {
 		Dict("kube_transition_metrics", s.event()).Logger()
 	eventLogger.Info().Msg("")
 
-	for _, containerStatistics := range s.InitContainers {
+	for _, containerStatistics := range s.initContainers {
 		containerStatistics.report()
 	}
-	for _, containerStatistics := range s.Containers {
+	for _, containerStatistics := range s.containers {
 		containerStatistics.report()
 	}
 }
@@ -112,20 +112,20 @@ func (s *podStatistic) update(pod *corev1.Pod) {
 		//nolint:exhaustive
 		switch condition.Type {
 		case corev1.PodScheduled:
-			if s.ScheduledTimestamp.IsZero() {
-				s.ScheduledTimestamp = condition.LastTransitionTime.Time
+			if s.scheduledTimestamp.IsZero() {
+				s.scheduledTimestamp = condition.LastTransitionTime.Time
 			}
 		case corev1.PodInitialized:
 			// Pod Initialized occursafter all images pulled, no need to continue to
 			// track
 
-			if s.InitializedTimestamp.IsZero() {
-				go s.ImagePullCollector.cancel("pod_initialized")
-				s.InitializedTimestamp = condition.LastTransitionTime.Time
+			if s.initializedTimestamp.IsZero() {
+				go s.imagePullCollector.cancel("pod_initialized")
+				s.initializedTimestamp = condition.LastTransitionTime.Time
 			}
 		case corev1.PodReady:
-			if s.ReadyTimestamp.IsZero() {
-				s.ReadyTimestamp = condition.LastTransitionTime.Time
+			if s.readyTimestamp.IsZero() {
+				s.readyTimestamp = condition.LastTransitionTime.Time
 			}
 		}
 	}
@@ -134,12 +134,12 @@ func (s *podStatistic) update(pod *corev1.Pod) {
 }
 
 func (s *podStatistic) updateContainers(pod *corev1.Pod) {
-	now := s.TimeSource.Now()
+	now := s.timeSource.Now()
 
 	logger := s.logger()
 
 	for _, containerStatus := range pod.Status.InitContainerStatuses {
-		containerStatistic, ok := s.InitContainers[containerStatus.Name]
+		containerStatistic, ok := s.initContainers[containerStatus.Name]
 		if !ok {
 			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", containerStatus.Name,
@@ -151,7 +151,7 @@ func (s *podStatistic) updateContainers(pod *corev1.Pod) {
 	}
 
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		containerStatistic, ok := s.Containers[containerStatus.Name]
+		containerStatistic, ok := s.containers[containerStatus.Name]
 		if !ok {
 			logger.Error().Msgf(
 				"Container statistic does not exist for %s", containerStatus.Name,

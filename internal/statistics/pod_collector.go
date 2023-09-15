@@ -82,21 +82,21 @@ type podAddedEvent struct {
 	clientset *kubernetes.Clientset
 }
 
-func (ev *podAddedEvent) PodUID() types.UID {
+func (ev *podAddedEvent) podUID() types.UID {
 	return ev.pod.UID
 }
 
-func (ev *podAddedEvent) Handle(statistic *podStatistic) bool {
+func (ev *podAddedEvent) handle(statistic *podStatistic) bool {
 	// As the PodAddedEvent may be called more than once, the initialization must
 	// only happen once.
-	if !statistic.Initialized {
+	if !statistic.initialized {
 		statistic.initialize(ev.pod)
-		statistic.ImagePullCollector = newImagePullCollector(
+		statistic.imagePullCollector = newImagePullCollector(
 			ev.collector.eh,
 			ev.pod.Namespace,
 			ev.pod.UID,
 		)
-		go statistic.ImagePullCollector.Run(ev.clientset)
+		go statistic.imagePullCollector.Run(ev.clientset)
 	}
 
 	statistic.update(ev.pod)
@@ -108,11 +108,11 @@ type podModifiedEvent struct {
 	pod *corev1.Pod
 }
 
-func (ev *podModifiedEvent) PodUID() types.UID {
+func (ev *podModifiedEvent) podUID() types.UID {
 	return ev.pod.UID
 }
 
-func (ev *podModifiedEvent) Handle(statistic *podStatistic) bool {
+func (ev *podModifiedEvent) handle(statistic *podStatistic) bool {
 	statistic.update(ev.pod)
 
 	return false
@@ -122,12 +122,12 @@ type podDeletedEvent struct {
 	uid types.UID
 }
 
-func (ev *podDeletedEvent) PodUID() types.UID {
+func (ev *podDeletedEvent) podUID() types.UID {
 	return ev.uid
 }
 
-func (ev *podDeletedEvent) Handle(statistic *podStatistic) bool {
-	go statistic.ImagePullCollector.cancel("pod_deleted")
+func (ev *podDeletedEvent) handle(statistic *podStatistic) bool {
+	go statistic.imagePullCollector.cancel("pod_deleted")
 
 	return true
 }

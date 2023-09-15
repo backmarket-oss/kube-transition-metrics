@@ -52,15 +52,15 @@ func (cs containerStatistic) event() *zerolog.Event {
 	event.Bool("init_container", cs.initContainer)
 	if !cs.startedTimestamp.IsZero() {
 		event.Float64("started_latency",
-			cs.startedTimestamp.Sub(cs.pod.CreationTimestamp).Seconds())
+			cs.startedTimestamp.Sub(cs.pod.creationTimestamp).Seconds())
 	}
 	if !cs.readyTimestamp.IsZero() {
 		event.Float64("ready_latency",
-			cs.readyTimestamp.Sub(cs.pod.CreationTimestamp).Seconds())
+			cs.readyTimestamp.Sub(cs.pod.creationTimestamp).Seconds())
 	}
 	if !cs.runningTimestamp.IsZero() {
 		event.Float64("running_latency",
-			cs.runningTimestamp.Sub(cs.pod.CreationTimestamp).Seconds())
+			cs.runningTimestamp.Sub(cs.pod.creationTimestamp).Seconds())
 	}
 
 	return event

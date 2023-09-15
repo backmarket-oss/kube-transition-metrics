@@ -92,7 +92,7 @@ type imagePullingEvent struct {
 	collector     *imagePullCollector
 }
 
-func (ev imagePullingEvent) PodUID() types.UID {
+func (ev imagePullingEvent) podUID() types.UID {
 	return ev.collector.podUID
 }
 
@@ -107,13 +107,13 @@ func (ev imagePullingEvent) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (ev imagePullingEvent) Handle(statistic *podStatistic) bool {
+func (ev imagePullingEvent) handle(statistic *podStatistic) bool {
 	logger := ev.logger()
 
 	var containerStatistic *containerStatistic
 	if ev.initContainer {
 		var ok bool
-		containerStatistic, ok = statistic.InitContainers[ev.containerName]
+		containerStatistic, ok = statistic.initContainers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", ev.containerName,
@@ -123,7 +123,7 @@ func (ev imagePullingEvent) Handle(statistic *podStatistic) bool {
 		}
 	} else {
 		var ok bool
-		containerStatistic, ok = statistic.Containers[ev.containerName]
+		containerStatistic, ok = statistic.containers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Container statistic does not exist for %s", ev.containerName,
@@ -151,7 +151,7 @@ type imagePulledEvent struct {
 	collector     *imagePullCollector
 }
 
-func (ev imagePulledEvent) PodUID() types.UID {
+func (ev imagePulledEvent) podUID() types.UID {
 	return ev.collector.podUID
 }
 
@@ -166,13 +166,13 @@ func (ev imagePulledEvent) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (ev imagePulledEvent) Handle(statistic *podStatistic) bool {
+func (ev imagePulledEvent) handle(statistic *podStatistic) bool {
 	logger := ev.logger()
 
 	var containerStatistic *containerStatistic
 	if ev.initContainer {
 		var ok bool
-		containerStatistic, ok = statistic.InitContainers[ev.containerName]
+		containerStatistic, ok = statistic.initContainers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", ev.containerName,
@@ -182,7 +182,7 @@ func (ev imagePulledEvent) Handle(statistic *podStatistic) bool {
 		}
 	} else {
 		var ok bool
-		containerStatistic, ok = statistic.Containers[ev.containerName]
+		containerStatistic, ok = statistic.containers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Container statistic does not exist for %s", ev.containerName,
