@@ -57,7 +57,6 @@ func (mts MockTimeSource) Now() time.Time {
 	return mts.mockedTime
 }
 
-//nolint:funlen
 func TestPodStatisticUpdate(t *testing.T) {
 	// Redirect logger to buffer
 	buf := setupLoggerToBuffer()
