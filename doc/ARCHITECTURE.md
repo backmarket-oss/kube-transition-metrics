@@ -2,15 +2,13 @@
 
 ## Overview
 
-This document describes the architecture of the kube-transition-metrics
+This document outlines the architecture of the `kube-transition-metrics`
 controller.
-The controller watches the Kubernetes Pods API to track the life-cycle of Pods.
-Pods are only tracked if they are created _after_ the startup of the controller.
-This is required as certain metrics are not computable from a point-in-time
-snapshot of the Kubernetes API, some timestamps are lost or replaced during the
-Pod life-cycle.
-Additionally, the Events API is also watched for ImagePulling and ImagePulled
-events to produce the `image_pull` metric type.
+This controller monitors the Kubernetes Pods API to observe the life-cycle of
+Pods.
+Only pods created after the controller's startup are tracked, as certain metrics
+can't be computed from a static snapshot of the Kubernetes API.
+The Events API is also monitored to gather the `image_pull` metric type.
 
 ## Block diagram
 

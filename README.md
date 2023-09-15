@@ -1,32 +1,33 @@
 # kube-transition-metrics
 
-(WIP) Live statistics on pod life-cycle timeline.
+(WIP) Real-time statistics on the pod life-cycle timeline.
 
 ## Description
 
-Kubernetes controller emitting JSON logs containing granular statistics of pod
-transition durations for pod creation to pod Ready.
-Includes image pull statistics as well.
+A Kubernetes controller that emits JSON logs with detailed statistics on pod
+transition durations—from pod creation to readiness.
+It also includes image pull statistics.
 
-**WORK IN PROGRESS, NOT PRODUCTION READY**
+**⚠️ NOTE: This project is still in development and not ready for
+production.**
 
 ## Getting Started
 
-You’ll need a Kubernetes cluster to run against.
-You can use KIND to get a local cluster for testing, or run against a remote
-cluster. Note: The controller will automatically use the current context in
-your `~/.kube/config` file (i.e. whatever cluster kubectl cluster-info shows).
+To use this, you need a Kubernetes cluster.
+For local testing, use KIND or set it up on a remote cluster.
+By default, the controller uses the current context in your `~/.kube/config`
+file (i.e., the cluster shown by `kubectl cluster-info`).
 
 ```sh
 go run .
 ```
 
-See:
+Refer to
 [cmd/kube-transition-metrics/README.md](cmd/kube-transition-metrics/README.md)
-for more information on usage.
+for detailed usage instructions.
 
-The helm chart in `charts/kube-transition-metrics` can be applied to run this
-controller in-cluster.
+To deploy this controller in-cluster, apply the helm chart located in
+`charts/kube-transition-metrics`.
 
 ```sh
 helm install \
@@ -35,7 +36,7 @@ helm install \
     kube-transition-metrics ./charts/kube-transition-metrics
 ```
 
-Reasonable resource requests and limits may be:
+For setting resource requests and limits, consider:
 
 ```yaml
 resources:
@@ -47,8 +48,8 @@ resources:
     memory: 58Mi
 ```
 
-Annotations to configure DataDog agent to scrape Prometheus/OpenMetrics metrics
-are as follows:
+To configure the DataDog agent to scrape Prometheus/OpenMetrics metrics, use
+these annotations:
 
 ```yaml
 podAnnotations:
@@ -67,27 +68,24 @@ podAnnotations:
 
 ## Available metrics
 
-Read about the available metrics here:
+For a detailed overview of available metrics, see
 [internal/statistics/README.md](internal/statistics/README.md).
 
 ## Contributing
 
-Send a pull request!
+We welcome contributions! Please send a pull request.
 
-## Hacking
+For a comprehensive overview, read the [Architecture](doc/ARCHITECTURE.md)
+design document.
 
-Read the [Architecture](doc/ARCHITECTURE.md) design document for a high-level
-overview.
-
-`promhttp` is used to publish some metrics about the internals of the
-controller.
-These metrics are distinct from the pod life-cycle timeline statistics.
-
-See details about the internal observability here:
+Internal metrics about the controller's operations are published using
+`promhttp`.
+These metrics are separate from the pod life-cycle statistics.
+For more information on internal observability, see
 [internal/prommetrics/README.md](internal/prommetrics/README.md).
 
-`pprof` is also instrumented through the `/debug/pprof/` endpoints, see
-[net/http/pprof](https://pkg.go.dev/net/http/pprof).
+Profiling is also enabled through the `/debug/pprof/` endpoints.
+Refer to [net/http/pprof](https://pkg.go.dev/net/http/pprof).
 
 ## License
 Copyright 2023.

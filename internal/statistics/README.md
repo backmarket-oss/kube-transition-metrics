@@ -2,37 +2,37 @@
 
 ## Overview
 
-The Pod life-cycle statistics are collection, processing, and exported as JSON
-data to `stderr`.
-These logs can be parsed by a log processing pipeline such as ELK or DataDog.
-Debug and informative logs are mixed with metrics, and can be differentiated by
-the presence of a top-level `kube_transition_metric_type`.
+This module handles the collection, processing, and exportation of Pod
+life-cycle statistics in JSON format to `stderr`.
+These logs can be integrated with log processing pipelines like ELK or DataDog.
+Distinguish metric logs from debug and informative logs by the presence of a
+top-level `kube_transition_metric_type`.
 
-## Structure
+## Log Structure
 
-All logs include a top-level `level` key, one of: `debug`, `info`, `warn`,
+All logs include a top-level `level` key, which can be: `debug`, `info`, `warn`,
 `error`, or `panic`.
 
-Logs with the top-level `kube_transition_metric_type` key contain metrics about
-pod life-cycle.
-The `kube_transition_metrics` key contains a dictionary of metrics in such logs.
+Logs with the `kube_transition_metric_type` key contain metrics about the pod
+life-cycle.
+The key `kube_transition_metrics` contains a dictionary of metrics within these
+logs.
 
-There are 3 `kube_transition_metric_type`s:
+There are three `kube_transition_metric_type`s:
+- `pod`: Metrics about pod life-cycle.
+- `container`: Metrics about container life-cycle.
+- `image_pull`: Metrics related to Docker/OCI image pulls.
 
-* `pod`: metrics about pod life-cycle.
-* `container`: metrics about container life-cycle.
-* `image_pull`: metrics about Docker/OCI image pulls.
+All metric logs have the `kube_namespace` and `pod_name` keys at the top level,
+which represent the Kubernetes namespace and Pod name associated with the
+metric.
+The `container` and `image_pull` metric logs also include the `container_name`
+key.
 
-All metric logs additionally have the `kube_namespace` and `pod_name` keys at
-the top level, with the respective Kubernetes namespace and Pod name assocaited
-with the metric.
-The `container` and `image_pull` metric logs will additionally have the
-`container_name` key set at the top level.
+Metrics are set once and will not be available until the information is
+recorded.
 
-Metric values are only set once, and are nonexistent before the information is
-available.
-
-The metrics available for each type are as follows:
+The available metrics for each type are as follows:
 
 ### `pod` metrics
 
@@ -104,20 +104,21 @@ and startProbe, it's not uncommon for some of these values to equal each-other.
 
 ### `image_pull` metrics
 
-Note: Images are only pulled when the image is not present on the node or
-the imagePullPolicy is set to Always.
-Images are never pulled twice for the same pod if the same image is used in
-multiple different containers.
-This metric will only be emitted if an ImagePulling event is initiated by the
-Kubelet.
+Note: Images are pulled only if the image is absent on the node, or if the
+`imagePullPolicy` is set to "Always".
+An image won't be pulled more than once for the same pod, even if the same image
+is used across multiple containers.
+This metric is emitted solely when the Kubelet initiates an "ImagePulling"
+event.
 
-* `init_container`: a boolean value representing if the container for which the
-  image was pulled is an initContainer.
-* `image_pull_duration`: a floating-point value representing the duration in
-  seconds between the ImagePulling event and the ImagePulled event.
-  While the event message for the ImagePulled event includes a more precise but
-  human-readable duration for the image pull, it is not parsed and this metric
-  may be inaccurate by a few seconds as it's based on Event timestamps.
+* `init_container`: A boolean indicating whether the container, for which the
+  image was pulled, is an initContainer.
+* `image_pull_duration`: Represents the duration (in seconds) between the
+  "ImagePulling" and "ImagePulled" events.
+  Though the "ImagePulled" event message contains a more precise, human-readable
+  duration of the image pull, it isn't parsed.
+  Thus, this metric's accuracy might differ slightly since it relies on event
+  timestamps.
 
 #### Example
 

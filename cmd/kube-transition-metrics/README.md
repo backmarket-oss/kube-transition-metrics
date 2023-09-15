@@ -1,7 +1,7 @@
 # kube-transition-metrics
 
-The kube-transition-metrics controller, exporting Pod life-cycle metrics to
-stderr in JSON format.
+The `kube-transition-metrics` controller exports Pod life-cycle metrics in JSON
+format to stderr.
 
 ## Usage
 
