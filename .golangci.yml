@@ -3,23 +3,24 @@ issues:
 linters:
   enable-all: true
   disable:
-    - nosnakecase
-    - paralleltest
-    - golint
-    - maligned
-    - scopelint
-    - varcheck
-    - interfacer
-    - ifshort
+    - deadcode
+    - depguard
     - exhaustivestruct
     - exhaustruct
-    - structcheck
-    - deadcode
-    - gofumpt
-    - wsl
     - godox
+    - gofumpt
+    - golint
+    - ifshort
+    - interfacer
     - ireturn
+    - maligned
+    - nosnakecase
+    - paralleltest
+    - scopelint
+    - structcheck
     - testpackage
+    - varcheck
+    - wsl
 linters-settings:
   stylecheck:
     checks: ["all", "-ST1000"]
