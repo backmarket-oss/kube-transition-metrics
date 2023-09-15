@@ -159,7 +159,10 @@ func TestPodStatisticUpdate(t *testing.T) {
 		}
 	}
 
-	assert.Len(t, statisticLogs, 2, "Not the correct number of statistic logs")
+	if !assert.Len(
+		t, statisticLogs, 2, "Not the correct number of statistic logs") {
+		return
+	}
 
 	sharedAssertations := func(log map[string]interface{}) {
 		assert.Equal(t, "test-namespace", log["kube_namespace"])
@@ -167,9 +170,11 @@ func TestPodStatisticUpdate(t *testing.T) {
 	}
 
 	sharedAssertations(statisticLogs[0])
+
 	assert.Equal(t,
 		"pod", statisticLogs[0]["kube_transition_metric_type"],
 		"first log metric is not of type pod")
+
 	assert.IsType(t,
 		make(map[string]interface{}),
 		statisticLogs[0]["kube_transition_metrics"],
