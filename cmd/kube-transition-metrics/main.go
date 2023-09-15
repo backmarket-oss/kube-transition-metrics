@@ -21,28 +21,28 @@ func main() {
 
 	options := options.Parse()
 
-	kubeconfig_path := os.Getenv("HOME") + "/.kube/config"
+	kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
 	if options.KubeconfigPath != "" {
-		kubeconfig_path = options.KubeconfigPath
+		kubeconfigPath = options.KubeconfigPath
 	} else if value, present := os.LookupEnv("KUBECONFIG"); present {
-		kubeconfig_path = value
+		kubeconfigPath = value
 	}
 	config, _ := clientcmd.
-		BuildConfigFromFlags("", kubeconfig_path)
+		BuildConfigFromFlags("", kubeconfigPath)
 	clientset, _ := kubernetes.NewForConfig(config)
 
-	initial_sync_blacklist, resource_version, err :=
+	initialSyncBlacklist, resourceVersion, err :=
 		statistics.CollectInitialPods(options, clientset)
 	if err != nil {
 		panic(err)
 	}
 
-	event_handler := statistics.NewStatisticEventHandler(options, initial_sync_blacklist)
+	eventHandler := statistics.NewStatisticEventHandler(options, initialSyncBlacklist)
 
-	go event_handler.Run()
+	go eventHandler.Run()
 
-	pod_collector := statistics.NewPodCollector(event_handler)
-	go pod_collector.Run(clientset, resource_version)
+	podCollector := statistics.NewPodCollector(eventHandler)
+	go podCollector.Run(clientset, resourceVersion)
 
 	http.Handle("/metrics", promhttp.Handler())
 	handler := zerologhttp.NewHandler(http.DefaultServeMux)

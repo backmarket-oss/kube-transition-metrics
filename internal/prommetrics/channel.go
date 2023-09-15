@@ -10,21 +10,21 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	MONITORED_CHANNEL_PUBLISH_WAIT_DURATION = prometheus.NewCounterVec(
+	MonitoredChannelPublishWaitDuration = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "channel_publish_wait_total",
 			Help: "Total amount of time in seconds waiting to publish a to the channel",
 		},
 		[]string{"channel_name"},
 	)
-	MONITORED_CHANNEL_QUEUE_DEPTH = prometheus.NewGaugeVec(
+	MonitoredChannelQueueDepth = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "channel_queue_depth",
 			Help: "Current queue depth of the channel",
 		},
 		[]string{"channel_name"},
 	)
-	CHANNEL_MONITORS = prometheus.NewGauge(
+	ChannelMonitors = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "channel_monitors",
 			Help: "Current number of channel monitor goroutines",
@@ -49,15 +49,15 @@ func NewMonitoredChannel[T interface{}](
 	name string,
 	length int,
 ) MonitoredChannel[T] {
-	monitored_channel := MonitoredChannel[T]{
+	monitoredChannel := MonitoredChannel[T]{
 		name:   name,
 		c:      make(chan T, length),
 		cancel: make(chan interface{}),
 	}
 
-	go monitored_channel.monitor()
+	go monitoredChannel.monitor()
 
-	return monitored_channel
+	return monitoredChannel
 }
 
 // Close closes the underlying channel and stops the monitoring goroutine.
@@ -75,10 +75,10 @@ func (mc MonitoredChannel[T]) Publish(item T) {
 	mc.c <- item
 	end := time.Now()
 
-	wait_duration := end.Sub(start)
-	MONITORED_CHANNEL_PUBLISH_WAIT_DURATION.
+	waitDuration := end.Sub(start)
+	MonitoredChannelPublishWaitDuration.
 		With(mc.prometheusLabels()).
-		Add(wait_duration.Seconds())
+		Add(waitDuration.Seconds())
 }
 
 // Read reads from the underlying channel.
@@ -93,8 +93,8 @@ func (mc MonitoredChannel[T]) monitor() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	CHANNEL_MONITORS.Inc()
-	defer CHANNEL_MONITORS.Dec()
+	ChannelMonitors.Inc()
+	defer ChannelMonitors.Dec()
 
 	for {
 		select {
@@ -109,7 +109,7 @@ func (mc MonitoredChannel[T]) monitor() {
 				logger.Panic().Msg("Ticker closed prematurely.")
 			}
 
-			MONITORED_CHANNEL_QUEUE_DEPTH.
+			MonitoredChannelQueueDepth.
 				With(mc.prometheusLabels()).
 				Set(float64(len(mc.c)))
 		}

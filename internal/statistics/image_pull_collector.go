@@ -28,16 +28,16 @@ type imagePullCollector struct {
 }
 
 func newImagePullCollector(
-	event_handler *StatisticEventHandler,
+	eventHandler *StatisticEventHandler,
 	namespace string,
-	pod_uid types.UID,
+	podUID types.UID,
 ) imagePullCollector {
 	return imagePullCollector{
 		canceled:   &atomic.Bool{},
 		cancelChan: make(chan string),
-		eh:         event_handler,
+		eh:         eventHandler,
 		namespace:  namespace,
-		podUID:     pod_uid,
+		podUID:     podUID,
 	}
 }
 
@@ -68,15 +68,15 @@ func (c imagePullCollector) logger() *zerolog.Logger {
 }
 
 func (c imagePullCollector) parseContainerName(
-	field_ref string,
+	fieldRef string,
 ) (bool, string) {
 	r := regexp.MustCompile(`^spec\.((?:initC|c)ontainers)\{(.*)\}$`)
 
-	matches := r.FindStringSubmatch(field_ref)
+	matches := r.FindStringSubmatch(fieldRef)
 	logger := c.logger()
 	if matches == nil {
 		logger.Error().
-			Str("field_ref", field_ref).
+			Str("field_ref", fieldRef).
 			Msg("Failed to find container name")
 
 		return false, ""
@@ -110,10 +110,10 @@ func (ev imagePullingEvent) logger() *zerolog.Logger {
 func (ev imagePullingEvent) Handle(statistic *podStatistic) bool {
 	logger := ev.logger()
 
-	var container_statistic *containerStatistic
+	var containerStatistic *containerStatistic
 	if ev.initContainer {
 		var ok bool
-		container_statistic, ok = statistic.InitContainers[ev.containerName]
+		containerStatistic, ok = statistic.InitContainers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", ev.containerName,
@@ -123,7 +123,7 @@ func (ev imagePullingEvent) Handle(statistic *podStatistic) bool {
 		}
 	} else {
 		var ok bool
-		container_statistic, ok = statistic.Containers[ev.containerName]
+		containerStatistic, ok = statistic.Containers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Container statistic does not exist for %s", ev.containerName,
@@ -132,13 +132,13 @@ func (ev imagePullingEvent) Handle(statistic *podStatistic) bool {
 			return false
 		}
 	}
-	image_pull_statistic := &container_statistic.imagePull
+	imagePullStatistic := &containerStatistic.imagePull
 
-	if !image_pull_statistic.finishedAt.IsZero() {
+	if !imagePullStatistic.finishedAt.IsZero() {
 		logger.Debug().Str("container_name", ev.containerName).
 			Msg("Skipping event for initialized pod")
-	} else if image_pull_statistic.startedAt.IsZero() {
-		image_pull_statistic.startedAt = ev.event.FirstTimestamp.Time
+	} else if imagePullStatistic.startedAt.IsZero() {
+		imagePullStatistic.startedAt = ev.event.FirstTimestamp.Time
 	}
 
 	return false
@@ -169,10 +169,10 @@ func (ev imagePulledEvent) logger() *zerolog.Logger {
 func (ev imagePulledEvent) Handle(statistic *podStatistic) bool {
 	logger := ev.logger()
 
-	var container_statistic *containerStatistic
+	var containerStatistic *containerStatistic
 	if ev.initContainer {
 		var ok bool
-		container_statistic, ok = statistic.InitContainers[ev.containerName]
+		containerStatistic, ok = statistic.InitContainers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Init container statistic does not exist for %s", ev.containerName,
@@ -182,7 +182,7 @@ func (ev imagePulledEvent) Handle(statistic *podStatistic) bool {
 		}
 	} else {
 		var ok bool
-		container_statistic, ok = statistic.Containers[ev.containerName]
+		containerStatistic, ok = statistic.Containers[ev.containerName]
 		if !ok {
 			logger.Error().Msgf(
 				"Container statistic does not exist for %s", ev.containerName,
@@ -191,48 +191,48 @@ func (ev imagePulledEvent) Handle(statistic *podStatistic) bool {
 			return false
 		}
 	}
-	image_pull_statistic := &container_statistic.imagePull
+	imagePullStatistic := &containerStatistic.imagePull
 
-	if image_pull_statistic.finishedAt.IsZero() {
-		image_pull_statistic.finishedAt = ev.event.LastTimestamp.Time
+	if imagePullStatistic.finishedAt.IsZero() {
+		imagePullStatistic.finishedAt = ev.event.LastTimestamp.Time
 	}
 
-	image_pull_statistic.log(ev.event.Message)
+	imagePullStatistic.log(ev.event.Message)
 
 	return false
 }
 
 func (c imagePullCollector) handleEvent(
-	event_type watch.EventType,
+	eventType watch.EventType,
 	event *corev1.Event,
 ) statisticEvent {
 	logger := c.logger()
 
-	if event_type != watch.Added {
-		logger.Debug().Msgf("Ignoring non-Added event: %+v", event_type)
+	if eventType != watch.Added {
+		logger.Debug().Msgf("Ignoring non-Added event: %+v", eventType)
 
 		return nil
 	}
 
 	switch event.Reason {
 	case "Pulling", "Pulled":
-		field_path := event.InvolvedObject.FieldPath
-		init_container, container_name := c.parseContainerName(field_path)
+		fieldPath := event.InvolvedObject.FieldPath
+		initContainer, containerName := c.parseContainerName(fieldPath)
 
-		if container_name == "" {
+		if containerName == "" {
 			return nil
 		}
 		if event.Reason == "Pulling" {
 			return &imagePullingEvent{
-				initContainer: init_container,
-				containerName: container_name,
+				initContainer: initContainer,
+				containerName: containerName,
 				event:         event,
 				collector:     &c,
 			}
 		} else if event.Reason == "Pulled" {
 			return &imagePulledEvent{
-				initContainer: init_container,
-				containerName: container_name,
+				initContainer: initContainer,
+				containerName: containerName,
 				event:         event,
 				collector:     &c,
 			}
@@ -244,24 +244,24 @@ func (c imagePullCollector) handleEvent(
 	return nil
 }
 
-func (c imagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
+func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 	logger := c.logger()
 
 	var event *corev1.Event
-	var is_event bool
-	if watch_event.Type == watch.Error {
-		logger.Error().Msgf("Watch event error: %+v", watch_event)
-		prommetrics.IMAGE_PULL_COLLECTOR_ERRORS.Inc()
+	var isEvent bool
+	if watchEvent.Type == watch.Error {
+		logger.Error().Msgf("Watch event error: %+v", watchEvent)
+		prommetrics.ImagePullCollectorErrors.Inc()
 
 		return true
-	} else if event, is_event = watch_event.Object.(*corev1.Event); !is_event {
-		logger.Panic().Msgf("Watch event is not an Event: %+v", watch_event)
-	} else if statistic_event :=
-		c.handleEvent(watch_event.Type, event); statistic_event != nil {
+	} else if event, isEvent = watchEvent.Object.(*corev1.Event); !isEvent {
+		logger.Panic().Msgf("Watch event is not an Event: %+v", watchEvent)
+	} else if statisticEvent :=
+		c.handleEvent(watchEvent.Type, event); statisticEvent != nil {
 		logger.Debug().Msgf(
-			"Publish event: %s", reflect.TypeOf(statistic_event).String(),
+			"Publish event: %s", reflect.TypeOf(statisticEvent).String(),
 		)
-		c.eh.Publish(statistic_event)
+		c.eh.Publish(statisticEvent)
 	}
 
 	return false
@@ -270,9 +270,9 @@ func (c imagePullCollector) handleWatchEvent(watch_event watch.Event) bool {
 func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	logger := c.logger()
 
-	watch_ops := c.watchOptions()
+	watchOps := c.watchOptions()
 	watcher, err :=
-		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watch_ops)
+		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watchOps)
 	if err != nil {
 		logger.Panic().Err(err).Msg("Error starting watcher.")
 	}
@@ -284,16 +284,16 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 			logger.Debug().Msgf("Received cancel event: %s", reason)
 
 			return true
-		case watch_event, watcher_open := <-watcher.ResultChan():
-			if !watcher_open {
+		case watchEvent, watcherOpen := <-watcher.ResultChan():
+			if !watcherOpen {
 				return false
 			}
 
-			should_break := c.handleWatchEvent(watch_event)
-			prommetrics.EVENTS_PROCESSED.
-				With(prometheus.Labels{"event_type": string(watch_event.Type)}).
+			shouldBreak := c.handleWatchEvent(watchEvent)
+			prommetrics.EventsProcessed.
+				With(prometheus.Labels{"event_type": string(watchEvent.Type)}).
 				Inc()
-			if should_break {
+			if shouldBreak {
 				return false
 			}
 		}
@@ -301,11 +301,11 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 }
 
 func (c imagePullCollector) watchOptions() metav1.ListOptions {
-	time_out := c.eh.options.KubeWatchTimeout
-	send_initial_events := true
-	watch_ops := metav1.ListOptions{
-		TimeoutSeconds:    &time_out,
-		SendInitialEvents: &send_initial_events,
+	timeOut := c.eh.options.KubeWatchTimeout
+	sendInitialEvents := true
+	watchOps := metav1.ListOptions{
+		TimeoutSeconds:    &timeOut,
+		SendInitialEvents: &sendInitialEvents,
 		Watch:             true,
 		Limit:             c.eh.options.KubeWatchMaxEvents,
 		FieldSelector: fields.Set(
@@ -315,17 +315,17 @@ func (c imagePullCollector) watchOptions() metav1.ListOptions {
 		).AsSelector().String(),
 	}
 
-	return watch_ops
+	return watchOps
 }
 
 func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	logger := c.logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
-	prommetrics.IMAGE_PULL_COLLECTOR_ROUTINES.Inc()
+	prommetrics.ImagePullCollectorRoutines.Inc()
 	defer func() {
 		logger.Debug().Msg("Stopped ImagePullCollector.")
-		prommetrics.IMAGE_PULL_COLLECTOR_ROUTINES.Dec()
+		prommetrics.ImagePullCollectorRoutines.Dec()
 	}()
 
 	for {
@@ -334,6 +334,6 @@ func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
 		}
 
 		logger.Warn().Msg("Watch ended, restarting. Some events may be lost.")
-		prommetrics.IMAGE_PULL_COLLECTOR_RESTARTS.Inc()
+		prommetrics.ImagePullCollectorRestarts.Inc()
 	}
 }

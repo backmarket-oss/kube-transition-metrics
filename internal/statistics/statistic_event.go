@@ -21,16 +21,16 @@ type StatisticEventHandler struct {
 }
 
 // NewStatisticEventHandler creates a new StatisticEventHandler which filters
-// out events for the provided initial_sync_blacklist Pod UIDs.
+// out events for the provided initialSyncBlacklist Pod UIDs.
 func NewStatisticEventHandler(
 	options *options.Options,
-	initial_sync_blacklist []types.UID,
+	initialSyncBlacklist []types.UID,
 ) *StatisticEventHandler {
 	return &StatisticEventHandler{
 		options: options,
 		eventChan: prommetrics.NewMonitoredChannel[statisticEvent](
 			"statistic_events", options.StatisticEventQueueLength),
-		blacklistUIDs: initial_sync_blacklist,
+		blacklistUIDs: initialSyncBlacklist,
 		statistics:    map[types.UID]*podStatistic{},
 	}
 }
@@ -80,7 +80,7 @@ func (eh *StatisticEventHandler) Run() {
 			delete(eh.statistics, uid)
 		}
 
-		prommetrics.PODS_TRACKED.Set(float64(len(eh.statistics)))
-		prommetrics.EVENTS_HANDLED.Inc()
+		prommetrics.PodsTracked.Set(float64(len(eh.statistics)))
+		prommetrics.EventsHandled.Inc()
 	}
 }

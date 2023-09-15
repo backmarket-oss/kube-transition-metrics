@@ -86,16 +86,16 @@ func (s podStatistic) event() *zerolog.Event {
 func (s podStatistic) report() {
 	logger := s.logger()
 
-	event_logger := logger.With().
+	eventLogger := logger.With().
 		Str("kube_transition_metric_type", "pod").
 		Dict("kube_transition_metrics", s.event()).Logger()
-	event_logger.Info().Msg("")
+	eventLogger.Info().Msg("")
 
-	for _, container_statistics := range s.InitContainers {
-		container_statistics.report()
+	for _, containerStatistics := range s.InitContainers {
+		containerStatistics.report()
 	}
-	for _, container_statistics := range s.Containers {
-		container_statistics.report()
+	for _, containerStatistics := range s.Containers {
+		containerStatistics.report()
 	}
 }
 
@@ -138,28 +138,28 @@ func (s *podStatistic) updateContainers(pod *corev1.Pod) {
 
 	logger := s.logger()
 
-	for _, container_status := range pod.Status.InitContainerStatuses {
-		container_statistic, ok := s.InitContainers[container_status.Name]
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		containerStatistic, ok := s.InitContainers[containerStatus.Name]
 		if !ok {
 			logger.Error().Msgf(
-				"Init container statistic does not exist for %s", container_status.Name,
+				"Init container statistic does not exist for %s", containerStatus.Name,
 			)
 
 			continue
 		}
-		container_statistic.update(now, container_status)
+		containerStatistic.update(now, containerStatus)
 	}
 
-	for _, container_status := range pod.Status.ContainerStatuses {
-		container_statistic, ok := s.Containers[container_status.Name]
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		containerStatistic, ok := s.Containers[containerStatus.Name]
 		if !ok {
 			logger.Error().Msgf(
-				"Container statistic does not exist for %s", container_status.Name,
+				"Container statistic does not exist for %s", containerStatus.Name,
 			)
 
 			continue
 		}
-		container_statistic.update(now, container_status)
+		containerStatistic.update(now, containerStatus)
 	}
 
 	s.report()

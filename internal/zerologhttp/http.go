@@ -57,23 +57,20 @@ func (c *Handler) ServeHTTP(
 	writer http.ResponseWriter,
 	req *http.Request,
 ) {
-	start_time := time.Now()
+	startTime := time.Now()
 	logger := c.logger()
 
-	response_logger := &responseLogger{responseWriter: writer}
+	responseLogger := &responseLogger{responseWriter: writer}
 	// Call the next handler in the chain
-	c.handler.ServeHTTP(response_logger, req)
+	c.handler.ServeHTTP(responseLogger, req)
 
 	// Log request information
-	duration := time.Since(start_time)
+	duration := time.Since(startTime)
 
-	// log_format combined '$remote_addr - $remote_user [$time_local] '
-	//                    '"$request" $status $body_bytes_sent '
-	//                    '"$http_referer" "$http_user_agent"';
 	nanoseconds := float64(time.Nanosecond) / float64(time.Second)
 	logger.Info().
 		Dict("http", zerolog.Dict().
-			Int64("bytes_sent", response_logger.bodyBytesSent).
+			Int64("bytes_sent", responseLogger.bodyBytesSent).
 			Float64("duration", float64(duration.Nanoseconds())*nanoseconds).
 			Str("host", req.Host).
 			Str("http_referer", req.Referer()).
@@ -82,16 +79,16 @@ func (c *Handler) ServeHTTP(
 			Str("remote_address", req.RemoteAddr).
 			Str("remote_user", "-").
 			Str("request_uri", req.RequestURI).
-			Float64("start_time", float64(start_time.UnixNano())*nanoseconds).
-			Int("status_code", response_logger.statusCode).
+			Float64("start_time", float64(startTime.UnixNano())*nanoseconds).
+			Int("status_code", responseLogger.statusCode).
 			Str("user_agent", req.UserAgent())).
 		Msgf(
 			"%s - - [%s] %#v %d %d %#v %#v",
 			req.RemoteAddr,
 			time.Now().Format("2006-01-02 15:04:05"),
 			req.Method+" "+req.RequestURI,
-			response_logger.statusCode,
-			response_logger.bodyBytesSent,
+			responseLogger.statusCode,
+			responseLogger.bodyBytesSent,
 			req.Referer(),
 			req.UserAgent(),
 		)

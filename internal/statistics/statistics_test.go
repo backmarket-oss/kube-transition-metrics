@@ -116,7 +116,7 @@ func TestPodStatisticUpdate(t *testing.T) {
 	assert.NotEmpty(t, stat.Containers, "containers map was not populated")
 
 	decoder := json.NewDecoder(buf)
-	statistic_logs := make([]map[string]interface{}, 0)
+	statisticLogs := make([]map[string]interface{}, 0)
 	for {
 		var document interface{}
 		if err := decoder.Decode(&document); errors.Is(err, io.EOF) {
@@ -125,32 +125,32 @@ func TestPodStatisticUpdate(t *testing.T) {
 			t.Errorf("Invalid JSON output")
 		}
 
-		if map_document, ok := document.(map[string]interface{}); ok {
-			if _, ok := map_document["kube_transition_metric_type"]; ok {
-				statistic_logs = append(statistic_logs, map_document)
+		if mapDocument, ok := document.(map[string]interface{}); ok {
+			if _, ok := mapDocument["kube_transition_metric_type"]; ok {
+				statisticLogs = append(statisticLogs, mapDocument)
 			}
 		} else {
 			t.Errorf("Log document is not a map")
 		}
 	}
 
-	assert.Len(t, statistic_logs, 2, "Not the correct number of statistic logs")
+	assert.Len(t, statisticLogs, 2, "Not the correct number of statistic logs")
 
-	shared_assertations := func(log map[string]interface{}) {
+	sharedAssertations := func(log map[string]interface{}) {
 		assert.Equal(t, "test-namespace", log["kube_namespace"])
 		assert.Equal(t, "test-pod", log["pod_name"])
 	}
 
-	shared_assertations(statistic_logs[0])
+	sharedAssertations(statisticLogs[0])
 	assert.Equal(t,
-		"pod", statistic_logs[0]["kube_transition_metric_type"],
+		"pod", statisticLogs[0]["kube_transition_metric_type"],
 		"first log metric is not of type pod")
 	assert.IsType(t,
 		make(map[string]interface{}),
-		statistic_logs[0]["kube_transition_metrics"],
+		statisticLogs[0]["kube_transition_metrics"],
 		"key kube_transition_metrics is not a JSON object")
 	metrics, _ :=
-		statistic_logs[0]["kube_transition_metrics"].(map[string]interface{})
+		statisticLogs[0]["kube_transition_metrics"].(map[string]interface{})
 	assert.InDelta(t,
 		2*time.Second.Seconds(), metrics["initialized_latency"], 1e-5,
 		"Initialized latency is not correct")
@@ -158,15 +158,15 @@ func TestPodStatisticUpdate(t *testing.T) {
 		time.Second.Seconds(), metrics["scheduled_latency"], 1e-5,
 		"Scheduled latency is not correct")
 
-	shared_assertations(statistic_logs[1])
+	sharedAssertations(statisticLogs[1])
 	assert.Equal(t,
-		"container", statistic_logs[1]["kube_transition_metric_type"],
+		"container", statisticLogs[1]["kube_transition_metric_type"],
 		"second log metric is not of type container")
 	assert.IsType(t,
-		make(map[string]interface{}), statistic_logs[1]["kube_transition_metrics"],
+		make(map[string]interface{}), statisticLogs[1]["kube_transition_metrics"],
 		"key kube_transition_metrics is not a JSON object")
 	metrics, _ =
-		statistic_logs[1]["kube_transition_metrics"].(map[string]interface{})
+		statisticLogs[1]["kube_transition_metrics"].(map[string]interface{})
 	assert.Equal(t,
 		false, metrics["init_container"], "Container should not be an init container")
 	assert.InDelta(t,

@@ -26,18 +26,18 @@ type containerStatistic struct {
 }
 
 func newContainerStatistic(
-	pod_statistic *podStatistic,
-	init_container bool,
+	statistic *podStatistic,
+	initContainer bool,
 	container corev1.Container,
 ) *containerStatistic {
-	container_statistic := &containerStatistic{
+	containerStatistic := &containerStatistic{
 		name:          container.Name,
-		initContainer: init_container,
-		pod:           pod_statistic,
+		initContainer: initContainer,
+		pod:           statistic,
 	}
-	container_statistic.imagePull.container = container_statistic
+	containerStatistic.imagePull.container = containerStatistic
 
-	return container_statistic
+	return containerStatistic
 }
 
 func (cs containerStatistic) logger() zerolog.Logger {
@@ -69,11 +69,11 @@ func (cs containerStatistic) event() *zerolog.Event {
 func (cs containerStatistic) report() {
 	logger := cs.logger()
 
-	event_logger := logger.With().
+	eventLogger := logger.With().
 		Str("kube_transition_metric_type", "container").
 		Dict("kube_transition_metrics", cs.event()).
 		Logger()
-	event_logger.Info().Msg("")
+	eventLogger.Info().Msg("")
 }
 
 func (cs containerStatistic) logContainerStatus(status corev1.ContainerStatus) {

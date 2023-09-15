@@ -41,25 +41,25 @@ func CollectInitialPods(
 	options *options.Options,
 	clientset *kubernetes.Clientset,
 ) ([]types.UID, string, error) {
-	time_out := options.KubeWatchTimeout
-	list_options := metav1.ListOptions{
-		TimeoutSeconds: &time_out,
+	timeOut := options.KubeWatchTimeout
+	listOptions := metav1.ListOptions{
+		TimeoutSeconds: &timeOut,
 		Limit:          options.KubeWatchMaxEvents,
 	}
 
-	blacklist_uids := make([]types.UID, 0)
+	blacklistUids := make([]types.UID, 0)
 	log.Info().Msg("Listing pods to get initial state ...")
 	var list *corev1.PodList
 	for list == nil || list.Continue != "" {
 		if list != nil {
 			log.Debug().Msgf("Initial list contains %d items ...", len(list.Items))
-			list_options.Continue = list.Continue
+			listOptions.Continue = list.Continue
 		}
 
-		log.Debug().Msgf("Listing from %+v ...", list_options.Continue)
+		log.Debug().Msgf("Listing from %+v ...", listOptions.Continue)
 		var err error
 		list, err =
-			clientset.CoreV1().Pods("").List(context.Background(), list_options)
+			clientset.CoreV1().Pods("").List(context.Background(), listOptions)
 		if err != nil {
 			log.Error().Err(err).Msg("Error performing initial sync.")
 
@@ -67,13 +67,13 @@ func CollectInitialPods(
 		}
 
 		for _, pod := range list.Items {
-			blacklist_uids = append(blacklist_uids, pod.UID)
+			blacklistUids = append(blacklistUids, pod.UID)
 		}
 	}
 	log.Info().
 		Msgf("Initial sync completed, resource version %+v", list.ResourceVersion)
 
-	return blacklist_uids, list.ResourceVersion, nil
+	return blacklistUids, list.ResourceVersion, nil
 }
 
 type podAddedEvent struct {
@@ -134,21 +134,21 @@ func (ev *podDeletedEvent) Handle(statistic *podStatistic) bool {
 
 func (w *PodCollector) handlePod(
 	clientset *kubernetes.Clientset,
-	event_type watch.EventType,
+	eventType watch.EventType,
 	pod *corev1.Pod,
 ) statisticEvent {
 	logger := log.With().
 		Str("kube_namespace", pod.Namespace).
 		Str("pod_name", pod.Name).
 		Str("pod_uid", string(pod.UID)).
-		Str("event_type", string(event_type)).
+		Str("event_type", string(eventType)).
 		Logger()
 	logger.Debug().Msg("Collecting statistics for pod")
 
 	// The watch.EventType watch.Error is already tested in the caller, as if there
 	// is an error no pod is sent.
 	//nolint:exhaustive
-	switch event_type {
+	switch eventType {
 	case watch.Added:
 		return &podAddedEvent{
 			clientset: clientset,
@@ -172,19 +172,19 @@ func (w *PodCollector) handlePod(
 
 func (w *PodCollector) watch(
 	clientset *kubernetes.Clientset,
-	resource_version string,
+	resourceVersion string,
 ) {
-	time_out := w.eh.options.KubeWatchTimeout
-	send_initial_events := resource_version != ""
-	watch_ops := metav1.ListOptions{
-		TimeoutSeconds:    &time_out,
-		SendInitialEvents: &send_initial_events,
+	timeOut := w.eh.options.KubeWatchTimeout
+	sendInitialEvents := resourceVersion != ""
+	watchOps := metav1.ListOptions{
+		TimeoutSeconds:    &timeOut,
+		SendInitialEvents: &sendInitialEvents,
 		Watch:             true,
-		ResourceVersion:   resource_version,
+		ResourceVersion:   resourceVersion,
 		Limit:             w.eh.options.KubeWatchMaxEvents,
 	}
 	watcher, err :=
-		clientset.CoreV1().Pods("").Watch(context.Background(), watch_ops)
+		clientset.CoreV1().Pods("").Watch(context.Background(), watchOps)
 	if err != nil {
 		log.Panic().Err(err).Msg("Error starting watcher.")
 	}
@@ -192,19 +192,19 @@ func (w *PodCollector) watch(
 
 	for event := range watcher.ResultChan() {
 		var pod *corev1.Pod
-		var is_a_pod bool
+		var isAPod bool
 		if event.Type == watch.Error {
 			log.Error().Msgf("Watch event error: %+v", event)
-			prommetrics.POD_COLLECTOR_ERRORS.Inc()
+			prommetrics.PodCollectorErrors.Inc()
 
 			break
-		} else if pod, is_a_pod = event.Object.(*corev1.Pod); !is_a_pod {
+		} else if pod, isAPod = event.Object.(*corev1.Pod); !isAPod {
 			log.Panic().Msgf("Watch event is not a Pod: %+v", event)
 		} else if event := w.handlePod(clientset, event.Type, pod); event != nil {
 			w.eh.Publish(event)
 		}
 
-		prommetrics.PODS_PROCESSED.With(
+		prommetrics.PodsProcessed.With(
 			prometheus.Labels{"event_type": string(event.Type)},
 		).Inc()
 	}
@@ -216,16 +216,16 @@ func (w *PodCollector) watch(
 // collectors.
 func (w *PodCollector) Run(
 	clientset *kubernetes.Clientset,
-	resource_version string,
+	resourceVersion string,
 ) {
 	for {
-		w.watch(clientset, resource_version)
+		w.watch(clientset, resourceVersion)
 
 		// Some leak in w.blacklistUids and w.statistics could happen, as Deleted
 		// events may be lost. This could be mitigated by performing another full List
 		// and checking for removed pod UIDs.
 		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
-		prommetrics.POD_COLLECTOR_RESTARTS.Inc()
-		resource_version = ""
+		prommetrics.PodCollectorRestarts.Inc()
+		resourceVersion = ""
 	}
 }
