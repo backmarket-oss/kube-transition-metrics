@@ -2,14 +2,15 @@
 
 ## Overview
 
-The Prometheus metrics available expose internal details about the operation of
-the `kube-transition-metrics` controller. They do not include metrics about the
-pods life-cycle, those are sent as JSON data to `stdout`.
+This module offers Prometheus metrics that provide insights into the
+`kube-transition-metrics` controller's internal operations.
+It doesn't include pod life-cycle metrics; those are sent as JSON data to
+`stderr`.
 
 ## Available metrics
 
-In addition to the standard metrics instrumented out of the box with `promhttp`
-and `net/http/pprof`, an example of the custom metrics can be seen below:
+Along with standard metrics from `promhttp` and `net/http/pprof`, you can see
+examples of custom metrics below:
 
 ```
 # HELP channel_monitors Current number of channel monitor goroutines
