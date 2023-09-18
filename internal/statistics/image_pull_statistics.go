@@ -1,7 +1,6 @@
 package statistics
 
 import (
-	"os"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -26,7 +25,7 @@ func (s imagePullStatistic) log(message string) {
 
 	logger :=
 		s.container.logger().
-			Output(os.Stdout).
+			Output(metricOutput).
 			With().
 			Str("kube_transition_metric_type", "image_pull").
 			Dict("kube_transition_metrics", metrics).

@@ -1,7 +1,6 @@
 package statistics
 
 import (
-	"os"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -70,7 +69,7 @@ func (cs containerStatistic) event() *zerolog.Event {
 func (cs containerStatistic) report() {
 	logger := cs.logger()
 
-	eventLogger := logger.Output(os.Stdout).With().
+	eventLogger := logger.Output(metricOutput).With().
 		Str("kube_transition_metric_type", "container").
 		Dict("kube_transition_metrics", cs.event()).
 		Logger()
