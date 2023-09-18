@@ -3,9 +3,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "kube-transition-monitoring.clusterRoleName" .  | quote }}
+  name: {{ include "kube-transition-metrics.clusterRoleName" .  | quote }}
   labels:
-    {{- include "kube-transition-monitoring.labels" . | nindent 4 }}
+    {{- include "kube-transition-metrics.labels" . | nindent 4 }}
   {{- with .Values.role.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -24,9 +24,9 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "kube-transition-monitoring.clusterRoleBindingName" . | quote }}
+  name: {{ include "kube-transition-metrics.clusterRoleBindingName" . | quote }}
   labels:
-    {{- include "kube-transition-monitoring.labels" . | nindent 4 }}
+    {{- include "kube-transition-metrics.labels" . | nindent 4 }}
   {{- with .Values.role.binding.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -34,9 +34,9 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "kube-transition-monitoring.clusterRoleName" . | quote }}
+  name: {{ include "kube-transition-metrics.clusterRoleName" . | quote }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "kube-transition-monitoring.serviceAccountName" . | quote }}
+  name: {{ include "kube-transition-metrics.serviceAccountName" . | quote }}
   namespace: {{ .Release.Namespace | quote }}
 {{- end }}

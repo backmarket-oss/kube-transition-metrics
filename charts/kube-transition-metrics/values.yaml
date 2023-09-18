@@ -1,4 +1,4 @@
-# Default values for kube-transition-monitoring.
+# Default values for kube-transition-metrics.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 

@@ -53,7 +53,7 @@ these annotations:
 
 ```yaml
 podAnnotations:
-  ad.datadoghq.com/kube-transition-monitoring.checks: |
+  ad.datadoghq.com/kube-transition-metrics.checks: |
     {
       "openmetrics": {
         "init_config": {},
