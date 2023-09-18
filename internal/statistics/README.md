@@ -3,15 +3,17 @@
 ## Overview
 
 This module handles the collection, processing, and exportation of Pod
-life-cycle statistics in JSON format to `stderr`.
+life-cycle statistics in JSON format to `stdout`.
 These logs can be integrated with log processing pipelines like ELK or DataDog.
 Distinguish metric logs from debug and informative logs by the presence of a
 top-level `kube_transition_metric_type`.
 
 ## Log Structure
 
-All logs include a top-level `level` key, which can be: `debug`, `info`, `warn`,
-`error`, or `panic`.
+All non-metric logs include a top-level `level` key, which can be: `debug`,
+`info`, `warn`, `error`, or `panic`.
+Non-metric logs are sent to `stderr`, whereas life-cycle metrics are sent to
+`stdout`.
 
 Logs with the `kube_transition_metric_type` key contain metrics about the pod
 life-cycle.

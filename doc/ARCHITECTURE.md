@@ -21,13 +21,13 @@ flowchart TD
     PodCollector["./internal/statistics.PodCollector.Run()"]
     StatisticEventHandler["./internal/statistics.StatisticEventHandler.Run()"]
     ImagePullCollector["./internal/statistics.ImagePullCollector.Run()"]
-    Stderr["/dev/stderr"]
+    Stdout["/dev/stdout"]
     HTTPServer["http.HTTPServer.ListenAndServe()"]
     PodsWatch["k8s.io/api/core/v1.PodInterface.Watch()"]
     EventsWatch["k8s.io/api/core/v1.EventInterface.Watch()"]
 
     main --->|"go func()"| StatisticEventHandler
-    StatisticEventHandler -->|"github.com/rs/zerolog.Logger.Print()"| Stderr
+    StatisticEventHandler -->|"github.com/rs/zerolog.Logger.Print()"| Stdout
     StatisticEventHandler -->|"[]./internal.statistics.podStatistic{}"| StatisticEventHandler
     PodsWatch -->|"*k8s.io/api/core/v1.Pod"| PodCollector
     main --->|"go func()"| PodCollector
@@ -49,7 +49,7 @@ to update these Pods in the order published.
 Using a single goroutine to update the Pods statistics simplifies concurrency
 control.
 After processing a statistic event, it emits the statistics for the tracked pod
-to stderr.
+to stdout.
 
 ### PodCollector loop
 

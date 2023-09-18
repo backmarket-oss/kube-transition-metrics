@@ -11,6 +11,7 @@ import (
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/zerologhttp"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -20,6 +21,7 @@ func main() {
 	prommetrics.Register()
 
 	options := options.Parse()
+	zerolog.SetGlobalLevel(options.LogLevel)
 
 	kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
 	if options.KubeconfigPath != "" {

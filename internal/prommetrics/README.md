@@ -5,7 +5,7 @@
 This module offers Prometheus metrics that provide insights into the
 `kube-transition-metrics` controller's internal operations.
 It doesn't include pod life-cycle metrics; those are sent as JSON data to
-`stderr`.
+`stdout`.
 
 ## Available metrics
 
