@@ -1,6 +1,11 @@
 package options
 
-import flag "github.com/spf13/pflag"
+import (
+	"log"
+
+	"github.com/rs/zerolog"
+	flag "github.com/spf13/pflag"
+)
 
 // Options contains the options for the controller.
 type Options struct {
@@ -10,6 +15,7 @@ type Options struct {
 	KubeWatchTimeout          int64
 	KubeWatchMaxEvents        int64
 	StatisticEventQueueLength int
+	LogLevel                  zerolog.Level
 }
 
 // Parse parses the options and returns them as a pointer to an Options struct.
@@ -53,8 +59,20 @@ func Parse() *Options {
 		"statistic-event-queue-length",
 		1000,
 		"The maximum number of queued statistic events (ADVANCED)")
+	logLevel := flag.String(
+		"log-level",
+		"INFO",
+		`The global logging level, one of "trace", "debug", "info", "warn", `+
+			`"error", "fatal", "panic", "disabled", or "" (empty string). This option's`+
+			`values are case-insensitive. Setting a value of "disabled" will result in`+
+			`no metrics being emitted.`)
 
 	flag.Parse()
+	if logLevelParsed, err := zerolog.ParseLevel(*logLevel); err != nil {
+		log.Fatalf("Invalid value for --log-level (%s): %q\n", *logLevel, err)
+	} else {
+		options.LogLevel = logLevelParsed
+	}
 
 	return &options
 }

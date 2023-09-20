@@ -69,11 +69,11 @@ func (cs containerStatistic) event() *zerolog.Event {
 func (cs containerStatistic) report() {
 	logger := cs.logger()
 
-	eventLogger := logger.With().
+	eventLogger := logger.Output(metricOutput).With().
 		Str("kube_transition_metric_type", "container").
 		Dict("kube_transition_metrics", cs.event()).
 		Logger()
-	eventLogger.Info().Msg("")
+	eventLogger.Log().Msg("")
 }
 
 func (cs containerStatistic) logContainerStatus(status corev1.ContainerStatus) {

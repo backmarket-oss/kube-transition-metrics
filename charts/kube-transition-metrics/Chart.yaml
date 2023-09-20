@@ -1,7 +1,7 @@
 apiVersion: v2
 name: kube-transition-metrics
 description: A Kubernetes watcher to compute the timeline of various parts of a
-  Pod lifecycle and export them as a JSON stream to stderr.
+  Pod lifecycle and export them as a JSON stream to stdout.
 
 # A chart can be either an 'application' or a 'library' chart.
 #

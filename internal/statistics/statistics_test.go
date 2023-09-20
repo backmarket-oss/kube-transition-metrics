@@ -9,17 +9,16 @@ import (
 	"time"
 
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func setupLoggerToBuffer() *bytes.Buffer {
-	var buf bytes.Buffer
-	log.Logger = log.Output(&buf)
+	buf := &bytes.Buffer{}
+	metricOutput = buf
 
-	return &buf
+	return buf
 }
 
 func TestNewPodStatistic(t *testing.T) {
