@@ -2,6 +2,8 @@ package statistics
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"reflect"
 	"regexp"
 	"sync/atomic"
@@ -12,11 +14,15 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	watch_tools "k8s.io/client-go/tools/watch"
 )
 
 type imagePullCollector struct {
@@ -250,14 +256,20 @@ func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 	var event *corev1.Event
 	var isEvent bool
 	if watchEvent.Type == watch.Error {
-		logger.Error().Msgf("Watch event error: %+v", watchEvent)
 		prommetrics.ImagePullCollectorErrors.Inc()
-
-		return true
+		// API error will not be wrapped and StatusError doesn't implement the
+		// nessesary interface.
+		//nolint:errorlint
+		apiStatus, ok := apierrors.FromObject(watchEvent.Object).(*apierrors.StatusError)
+		if ok && apiStatus.ErrStatus.Code == http.StatusGone {
+			// The resource version we were watching is too old.
+			logger.Warn().Msg("Resource version too old, resetting watch.")
+		} else {
+			logger.Error().Msgf("Watch event error: %+v", event)
+		}
 	} else if event, isEvent = watchEvent.Object.(*corev1.Event); !isEvent {
 		logger.Panic().Msgf("Watch event is not an Event: %+v", watchEvent)
-	} else if statisticEvent :=
-		c.handleEvent(watchEvent.Type, event); statisticEvent != nil {
+	} else if statisticEvent := c.handleEvent(watchEvent.Type, event); statisticEvent != nil {
 		logger.Debug().Msgf(
 			"Publish event: %s", reflect.TypeOf(statisticEvent).String(),
 		)
@@ -267,12 +279,13 @@ func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 	return false
 }
 
-func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
+func (c imagePullCollector) watch(
+	clientset *kubernetes.Clientset,
+	resourceVersion string,
+) bool {
 	logger := c.logger()
 
-	watchOps := c.watchOptions()
-	watcher, err :=
-		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watchOps)
+	watcher, err := c.getWatcher(clientset, resourceVersion)
 	if err != nil {
 		logger.Panic().Err(err).Msg("Error starting watcher.")
 	}
@@ -300,25 +313,47 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	}
 }
 
-func (c imagePullCollector) watchOptions() metav1.ListOptions {
-	timeOut := c.eh.options.KubeWatchTimeout
-	sendInitialEvents := true
-	watchOps := metav1.ListOptions{
-		TimeoutSeconds:    &timeOut,
-		SendInitialEvents: &sendInitialEvents,
-		Watch:             true,
-		Limit:             c.eh.options.KubeWatchMaxEvents,
-		FieldSelector: fields.Set(
-			map[string]string{
-				"involvedObject.uid": string(c.podUID),
-			},
-		).AsSelector().String(),
-	}
+func (c imagePullCollector) patchWatchOptions(
+	options metav1.ListOptions,
+) metav1.ListOptions {
+	options.FieldSelector = fields.Set(
+		map[string]string{
+			"involvedObject.uid": string(c.podUID),
+		},
+	).AsSelector().String()
 
-	return watchOps
+	return options
 }
 
-func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
+func (c imagePullCollector) getWatcher(
+	clientset *kubernetes.Clientset,
+	resourceVersion string,
+) (*watch_tools.RetryWatcher, error) {
+	watcher, err := watch_tools.NewRetryWatcher(resourceVersion, &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options = c.patchWatchOptions(options)
+
+			//nolint:wrapcheck
+			return clientset.CoreV1().Events("").List(context.Background(), options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options = c.patchWatchOptions(options)
+
+			//nolint:wrapcheck
+			return clientset.CoreV1().Events("").Watch(context.Background(), options)
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create watcher: %w", err)
+	}
+
+	return watcher, nil
+}
+
+func (c imagePullCollector) Run(
+	clientset *kubernetes.Clientset,
+	resourceVersion string,
+) {
 	logger := c.logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
@@ -329,10 +364,11 @@ func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	}()
 
 	for {
-		if c.watch(clientset) {
+		if c.watch(clientset, resourceVersion) {
 			return
 		}
 
+		resourceVersion = ""
 		logger.Warn().Msg("Watch ended, restarting. Some events may be lost.")
 		prommetrics.ImagePullCollectorRestarts.Inc()
 	}

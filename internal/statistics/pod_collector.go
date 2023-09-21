@@ -96,7 +96,7 @@ func (ev *podAddedEvent) handle(statistic *podStatistic) bool {
 			ev.pod.Namespace,
 			ev.pod.UID,
 		)
-		go statistic.imagePullCollector.Run(ev.clientset)
+		go statistic.imagePullCollector.Run(ev.clientset, ev.pod.ResourceVersion)
 	}
 
 	statistic.update(ev.pod)
