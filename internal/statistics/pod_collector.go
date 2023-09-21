@@ -207,6 +207,7 @@ func (w *PodCollector) watch(
 		var pod *corev1.Pod
 		var isAPod bool
 		if event.Type == watch.Error {
+			prommetrics.PodCollectorErrors.Inc()
 			apiStatus, ok := event.Object.(*metav1.Status)
 			if ok && apiStatus.Code == http.StatusGone {
 				// The resource version we were watching is too old.
@@ -217,7 +218,6 @@ func (w *PodCollector) watch(
 				// Handle other watch errors as you see fit
 				log.Error().Msgf("Watch event error: %+v", event)
 			}
-			prommetrics.PodCollectorErrors.Inc()
 
 			continue // RetryWatcher will handle reconnection, so just continue
 		} else if pod, isAPod = event.Object.(*corev1.Pod); !isAPod {
