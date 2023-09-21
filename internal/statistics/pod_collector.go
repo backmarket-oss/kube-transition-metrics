@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -208,14 +209,14 @@ func (w *PodCollector) watch(
 		var isAPod bool
 		if event.Type == watch.Error {
 			prommetrics.PodCollectorErrors.Inc()
-			apiStatus, ok := event.Object.(*metav1.Status)
-			if ok && apiStatus.Code == http.StatusGone {
+			// API error will not be wrapped and StatusError doesn't implement the
+			// nessesary interface.
+			//nolint:errorlint
+			apiStatus, ok := apierrors.FromObject(event.Object).(*apierrors.StatusError)
+			if ok && apiStatus.ErrStatus.Code == http.StatusGone {
 				// The resource version we were watching is too old.
-				log.Warn().Msg("Resource version too old, cleaning up and resetting watch.")
-
-				return
+				log.Warn().Msg("Resource version too old, resetting watch.")
 			} else {
-				// Handle other watch errors as you see fit
 				log.Error().Msgf("Watch event error: %+v", event)
 			}
 
