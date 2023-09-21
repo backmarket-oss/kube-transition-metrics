@@ -81,11 +81,9 @@ func (mc MonitoredChannel[T]) Publish(item T) {
 		Add(waitDuration.Seconds())
 }
 
-// Read reads from the underlying channel.
-func (mc MonitoredChannel[T]) Read() (T, bool) {
-	item, ok := <-mc.c
-
-	return item, ok
+// Channel returns the underlying channel, only use for chan receive!
+func (mc MonitoredChannel[T]) Channel() chan T {
+	return mc.c
 }
 
 func (mc MonitoredChannel[T]) monitor() {

@@ -3,16 +3,19 @@ package statistics
 import (
 	"context"
 	"fmt"
+	"net/http"
 
-	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	watch_tools "k8s.io/client-go/tools/watch"
 )
 
 // PodCollector uses the Kubernetes Watch API to monitor for all changes on Pods
@@ -32,19 +35,18 @@ func NewPodCollector(
 	}
 }
 
-// CollectInitialPods generates a list of Pod UIDs currently existing on the
+// collectInitialPods generates a list of Pod UIDs currently existing on the
 // cluster. This is used to filter pre-existing Pods by the
 // StatisticEventHandler to avoid generating inaccurate or incomplete metrics.
 // It returns the list of Pod UIDs, the resource version for these UIDs, and an
 // error if one occurred.
-func CollectInitialPods(
-	options *options.Options,
+func (w *PodCollector) collectInitialPods(
 	clientset *kubernetes.Clientset,
 ) ([]types.UID, string, error) {
-	timeOut := options.KubeWatchTimeout
+	timeOut := w.eh.options.KubeWatchTimeout
 	listOptions := metav1.ListOptions{
 		TimeoutSeconds: &timeOut,
-		Limit:          options.KubeWatchMaxEvents,
+		Limit:          w.eh.options.KubeWatchMaxEvents,
 	}
 
 	blacklistUids := make([]types.UID, 0)
@@ -170,21 +172,32 @@ func (w *PodCollector) handlePod(
 	return nil
 }
 
+func (w *PodCollector) getWatcher(
+	clientset *kubernetes.Clientset,
+	resourceVersion string,
+) (*watch_tools.RetryWatcher, error) {
+	watcher, err := watch_tools.NewRetryWatcher(resourceVersion, &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			//nolint:wrapcheck
+			return clientset.CoreV1().Pods("").List(context.Background(), options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			//nolint:wrapcheck
+			return clientset.CoreV1().Pods("").Watch(context.Background(), options)
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create watcher: %w", err)
+	}
+
+	return watcher, nil
+}
+
 func (w *PodCollector) watch(
 	clientset *kubernetes.Clientset,
 	resourceVersion string,
 ) {
-	timeOut := w.eh.options.KubeWatchTimeout
-	sendInitialEvents := resourceVersion != ""
-	watchOps := metav1.ListOptions{
-		TimeoutSeconds:    &timeOut,
-		SendInitialEvents: &sendInitialEvents,
-		Watch:             true,
-		ResourceVersion:   resourceVersion,
-		Limit:             w.eh.options.KubeWatchMaxEvents,
-	}
-	watcher, err :=
-		clientset.CoreV1().Pods("").Watch(context.Background(), watchOps)
+	watcher, err := w.getWatcher(clientset, resourceVersion)
 	if err != nil {
 		log.Panic().Err(err).Msg("Error starting watcher.")
 	}
@@ -194,10 +207,19 @@ func (w *PodCollector) watch(
 		var pod *corev1.Pod
 		var isAPod bool
 		if event.Type == watch.Error {
-			log.Error().Msgf("Watch event error: %+v", event)
+			apiStatus, ok := event.Object.(*metav1.Status)
+			if ok && apiStatus.Code == http.StatusGone {
+				// The resource version we were watching is too old.
+				log.Warn().Msg("Resource version too old, cleaning up and resetting watch.")
+
+				return
+			} else {
+				// Handle other watch errors as you see fit
+				log.Error().Msgf("Watch event error: %+v", event)
+			}
 			prommetrics.PodCollectorErrors.Inc()
 
-			break
+			continue // RetryWatcher will handle reconnection, so just continue
 		} else if pod, isAPod = event.Object.(*corev1.Pod); !isAPod {
 			log.Panic().Msgf("Watch event is not a Pod: %+v", event)
 		} else if event := w.handlePod(clientset, event.Type, pod); event != nil {
@@ -214,18 +236,17 @@ func (w *PodCollector) watch(
 // StatisticEventHandler used to initialize the PodCollector. It is blocking and
 // should be run in another goroutine to the StatisticEventHandler and other
 // collectors.
-func (w *PodCollector) Run(
-	clientset *kubernetes.Clientset,
-	resourceVersion string,
-) {
+func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
 	for {
-		w.watch(clientset, resourceVersion)
+		resyncUIDs, resourceVersion, err := w.collectInitialPods(clientset)
+		if err != nil {
+			log.Panic().Err(err).Msg(
+				"Failed to resync after 410 Gone from kubernetes Watch API")
+		}
 
-		// Some leak in w.blacklistUids and w.statistics could happen, as Deleted
-		// events may be lost. This could be mitigated by performing another full List
-		// and checking for removed pod UIDs.
+		w.eh.resyncChan.Publish(resyncUIDs)
+		w.watch(clientset, resourceVersion)
 		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
 		prommetrics.PodCollectorRestarts.Inc()
-		resourceVersion = ""
 	}
 }
