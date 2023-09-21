@@ -264,6 +264,8 @@ func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 		if ok && apiStatus.ErrStatus.Code == http.StatusGone {
 			// The resource version we were watching is too old.
 			logger.Warn().Msg("Resource version too old, resetting watch.")
+
+			return true
 		} else {
 			logger.Error().Msgf("Watch event error: %+v", event)
 		}
@@ -299,7 +301,7 @@ func (c imagePullCollector) watch(
 			return true
 		case watchEvent, watcherOpen := <-watcher.ResultChan():
 			if !watcherOpen {
-				return false
+				logger.Panic().Msg("Watcher closed unexpectedly")
 			}
 
 			shouldBreak := c.handleWatchEvent(watchEvent)
