@@ -216,7 +216,7 @@ func (w *PodCollector) watch(
 			if ok && apiStatus.ErrStatus.Code == http.StatusGone {
 				// The resource version we were watching is too old.
 				log.Warn().Msg("Resource version too old, resetting watch.")
-				
+
 				return
 			} else {
 				log.Error().Msgf("Watch event error: %+v", event)
