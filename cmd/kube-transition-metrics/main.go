@@ -72,18 +72,12 @@ func main() {
 		log.Panic().Err(err).Msg("Failed to build kubernetes client")
 	}
 
-	initialSyncBlacklist, resourceVersion, err :=
-		statistics.CollectInitialPods(options, clientset)
-	if err != nil {
-		panic(err)
-	}
-
-	eventHandler := statistics.NewStatisticEventHandler(options, initialSyncBlacklist)
+	eventHandler := statistics.NewStatisticEventHandler(options)
 
 	go eventHandler.Run()
 
 	podCollector := statistics.NewPodCollector(eventHandler)
-	go podCollector.Run(clientset, resourceVersion)
+	go podCollector.Run(clientset)
 
 	http.Handle("/metrics", promhttp.Handler())
 	handler := zerologhttp.NewHandler(http.DefaultServeMux)
