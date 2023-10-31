@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
@@ -270,11 +271,22 @@ func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	logger := c.logger()
 
-	watchOps := c.watchOptions()
+	// TODO: use a ("k8s.io/client-go/tools/watch").RetryWatcher to allow fetching
+	// existing events.
+	watchOpts := c.watchOptions()
 	watcher, err :=
-		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watchOps)
+		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watchOpts)
 	if err != nil {
-		logger.Panic().Err(err).Msg("Error starting watcher.")
+		watchOptsJSON, marshalErr := json.Marshal(watchOpts)
+		if marshalErr != nil {
+			watchOptsJSON = []byte("null")
+		}
+
+		logger.Panic().
+			Str("watch_namespace", c.namespace).
+			RawJSON("watch_opts", watchOptsJSON).
+			AnErr("watch_opts_marshal_err", marshalErr).
+			Err(err).Msg("Error starting watcher.")
 	}
 	defer watcher.Stop()
 
@@ -302,12 +314,10 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 
 func (c imagePullCollector) watchOptions() metav1.ListOptions {
 	timeOut := c.eh.options.KubeWatchTimeout
-	sendInitialEvents := true
 	watchOps := metav1.ListOptions{
-		TimeoutSeconds:    &timeOut,
-		SendInitialEvents: &sendInitialEvents,
-		Watch:             true,
-		Limit:             c.eh.options.KubeWatchMaxEvents,
+		TimeoutSeconds: &timeOut,
+		Watch:          true,
+		Limit:          c.eh.options.KubeWatchMaxEvents,
 		FieldSelector: fields.Set(
 			map[string]string{
 				"involvedObject.uid": string(c.podUID),
