@@ -9,18 +9,21 @@ import (
 type imagePullStatistic struct {
 	container *containerStatistic
 
-	startedAt  time.Time
-	finishedAt time.Time
+	startedTimestamp  time.Time
+	finishedTimestamp time.Time
 }
 
 func (s imagePullStatistic) log(message string) {
 	metrics := zerolog.Dict()
-	metrics.Bool("init_container", s.container.initContainer)
-	if !s.finishedAt.IsZero() && !s.startedAt.IsZero() {
-		metrics.Float64(
-			"image_pull_duration",
-			s.finishedAt.Sub(s.startedAt).Seconds(),
-		)
+
+	if !s.startedTimestamp.IsZero() {
+		metrics.Time("started_timestamp", s.startedTimestamp)
+	}
+	if !s.finishedTimestamp.IsZero() {
+		metrics.Time("finished_timestamp", s.finishedTimestamp)
+		if !s.startedTimestamp.IsZero() {
+			metrics.Dur("duration_seconds", s.finishedTimestamp.Sub(s.startedTimestamp))
+		}
 	}
 
 	logger :=
