@@ -5,6 +5,7 @@ import (
 	//nolint:gosec
 	_ "net/http/pprof"
 	"os"
+	"time"
 
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
@@ -65,6 +66,8 @@ func main() {
 
 	options := options.Parse()
 	zerolog.SetGlobalLevel(options.LogLevel)
+	zerolog.DurationFieldInteger = false
+	zerolog.DurationFieldUnit = time.Second
 
 	config := getKubeconfig(options)
 	clientset, err := kubernetes.NewForConfig(config)

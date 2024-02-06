@@ -135,11 +135,11 @@ func (ev imagePullingEvent) handle(statistic *podStatistic) bool {
 	}
 	imagePullStatistic := &containerStatistic.imagePull
 
-	if !imagePullStatistic.finishedAt.IsZero() {
+	if !imagePullStatistic.finishedTimestamp.IsZero() {
 		logger.Debug().Str("container_name", ev.containerName).
 			Msg("Skipping event for initialized pod")
-	} else if imagePullStatistic.startedAt.IsZero() {
-		imagePullStatistic.startedAt = ev.event.FirstTimestamp.Time
+	} else if imagePullStatistic.startedTimestamp.IsZero() {
+		imagePullStatistic.startedTimestamp = ev.event.FirstTimestamp.Time
 	}
 
 	return false
@@ -194,8 +194,8 @@ func (ev imagePulledEvent) handle(statistic *podStatistic) bool {
 	}
 	imagePullStatistic := &containerStatistic.imagePull
 
-	if imagePullStatistic.finishedAt.IsZero() {
-		imagePullStatistic.finishedAt = ev.event.LastTimestamp.Time
+	if imagePullStatistic.finishedTimestamp.IsZero() {
+		imagePullStatistic.finishedTimestamp = ev.event.LastTimestamp.Time
 	}
 
 	imagePullStatistic.log(ev.event.Message)

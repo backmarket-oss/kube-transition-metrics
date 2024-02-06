@@ -118,9 +118,9 @@ func TestPodStatisticUpdate(t *testing.T) {
 	// Update the pod statistic for the "new" state
 	stat.update(pod)
 
-	assert.NotZero(t, stat.scheduledTimestamp, "scheduledTimestamp was not set")
+	assert.NotZero(t, stat.initializingTimestamp, "scheduledTimestamp was not set")
 	assert.NotZero(
-		t, stat.initializedTimestamp, "initializedTimestamp was not set")
+		t, stat.runningTimestamp, "initializedTimestamp was not set")
 	assert.NotEmpty(t, stat.containers, "containers map was not populated")
 
 	// Check that the imagePullCollector would have been canceled for the right

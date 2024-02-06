@@ -13,6 +13,9 @@ type containerStatistic struct {
 	pod           *podStatistic
 	imagePull     imagePullStatistic
 
+	// Previous init container, null if first init container or non-init container
+	previous *containerStatistic
+
 	// The timestamp for when the container first turned Running.
 	runningTimestamp time.Time
 
@@ -46,21 +49,53 @@ func (cs containerStatistic) logger() zerolog.Logger {
 		Logger()
 }
 
+func (cs containerStatistic) appendInitFields(event *zerolog.Event) {
+	if !cs.runningTimestamp.IsZero() && cs.previous != nil && !cs.previous.readyTimestamp.IsZero() {
+		event.Dur("previous_to_running_seconds", cs.runningTimestamp.Sub(cs.previous.readyTimestamp))
+	}
+}
+
+func (cs containerStatistic) appendNonInitFields(event *zerolog.Event) {
+	if !cs.runningTimestamp.IsZero() && !cs.pod.initializingTimestamp.IsZero() {
+		event.Dur("initialized_to_running_seconds", cs.runningTimestamp.Sub(cs.pod.initializingTimestamp))
+	}
+}
+
 func (cs containerStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
 	event.Bool("init_container", cs.initContainer)
+	if cs.initContainer {
+		cs.appendInitFields(event)
+	} else {
+		cs.appendNonInitFields(event)
+	}
+
+	if !cs.runningTimestamp.IsZero() {
+		event.Time("running_timestamp", cs.runningTimestamp)
+	}
 	if !cs.startedTimestamp.IsZero() {
-		event.Float64("started_latency",
-			cs.startedTimestamp.Sub(cs.pod.creationTimestamp).Seconds())
+		event.Time("started_timestamp", cs.startedTimestamp)
+		if !cs.runningTimestamp.IsZero() {
+			event.Dur("running_to_started_seconds", cs.startedTimestamp.Sub(cs.runningTimestamp))
+		}
 	}
 	if !cs.readyTimestamp.IsZero() {
-		event.Float64("ready_latency",
-			cs.readyTimestamp.Sub(cs.pod.creationTimestamp).Seconds())
-	}
-	if !cs.runningTimestamp.IsZero() {
-		event.Float64("running_latency",
-			cs.runningTimestamp.Sub(cs.pod.creationTimestamp).Seconds())
+		event.Time("ready_timestamp", cs.readyTimestamp)
+
+		// As init containers do not supported startup, liveliness, or readiness probes the Started container status field is
+		// not set for init containers.
+		// Instead, readiness represents the time an init container has excited successfully,allowing the following containers
+		// to proceed.
+		// Given this, presenting both running_to_ready_seconds and started_to_ready_seconds is useful to cover the differing
+		// meanings for both container types.
+		// See: https://github.com/kubernetes/website/blob/b397a8f/content/en/docs/concepts/workloads/pods/init-containers.md
+		if !cs.runningTimestamp.IsZero() {
+			event.Dur("running_to_ready_seconds", cs.readyTimestamp.Sub(cs.runningTimestamp))
+		}
+		if !cs.startedTimestamp.IsZero() {
+			event.Dur("started_to_ready_seconds", cs.readyTimestamp.Sub(cs.runningTimestamp))
+		}
 	}
 
 	return event
