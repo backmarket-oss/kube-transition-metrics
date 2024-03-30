@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +58,9 @@ func (mts MockTimeSource) Now() time.Time {
 }
 
 func TestPodStatisticUpdate(t *testing.T) {
+	zerolog.DurationFieldInteger = false
+	zerolog.DurationFieldUnit = time.Second
+
 	// Redirect logger to buffer
 	buf := setupLoggerToBuffer()
 
@@ -180,10 +184,10 @@ func TestPodStatisticUpdate(t *testing.T) {
 	metrics, _ :=
 		statisticLogs[0]["kube_transition_metrics"].(map[string]interface{})
 	assert.InDelta(t,
-		2*time.Second.Seconds(), metrics["initialized_latency"], 1e-5,
+		2*time.Second.Seconds(), metrics["creation_to_running_seconds"], 1e-5,
 		"Initialized latency is not correct")
 	assert.InDelta(t,
-		time.Second.Seconds(), metrics["scheduled_latency"], 1e-5,
+		time.Second.Seconds(), metrics["creation_to_initializing_seconds"], 1e-5,
 		"Scheduled latency is not correct")
 
 	sharedAssertations(statisticLogs[1])
@@ -198,8 +202,8 @@ func TestPodStatisticUpdate(t *testing.T) {
 	assert.Equal(t,
 		false, metrics["init_container"], "Container should not be an init container")
 	assert.InDelta(t,
-		3*time.Second.Seconds(), metrics["ready_latency"], 1e-5,
-		"Container ready latency is not correct")
+		2*time.Second.Seconds(), metrics["initialized_to_running_seconds"], 1e-5,
+		"Container runnning latency is not correct")
 }
 
 func TestContainerStatisticUpdate(t *testing.T) {
