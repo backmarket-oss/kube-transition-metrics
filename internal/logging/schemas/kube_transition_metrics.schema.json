@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schemas/kube_transition_metrics.schema.json",
-  "title": "github.com/backmarket-oss/kube-transition-metrics Record",
-  "description": "JSON schema for metric logs emitted by the github.com/backmarket-oss/kube-transition-metrics controller",
+  "title": "Metric Record",
+  "description": "JSON schema for metric logs emitted by the kube-transition-metrics controller",
   "type": "object",
   "properties": {
     "kube_transition_metrics": {
