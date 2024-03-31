@@ -53,11 +53,11 @@
 
 **Description:** JSON schema for metric logs emitted by the kube-transition-metrics controller
 
-| Property                                               | Pattern | Type        | Deprecated | Definition | Title/Description |
-| ------------------------------------------------------ | ------- | ----------- | ---------- | ---------- | ----------------- |
-| + [kube_transition_metrics](#kube_transition_metrics ) | No      | Combination | No         | -          | Metrics           |
-| + [time](#time )                                       | No      | string      | No         | -          | Metric Timestamp  |
-| - [message](#message )                                 | No      | string      | No         | -          | Message           |
+| Property                                               | Type        | Title/Description |
+| ------------------------------------------------------ | ----------- | ----------------- |
+| + [kube_transition_metrics](#kube_transition_metrics ) | Combination | Metrics           |
+| + [time](#time )                                       | string      | Metric Timestamp  |
+| - [message](#message )                                 | string      | Message           |
 
 ## <a name="kube_transition_metrics"></a>1. Property `Metric Record > kube_transition_metrics`
 
@@ -71,14 +71,14 @@
 
 **Description:** The metrics pertaining to pod_name
 
-| Property                                                     | Pattern | Type             | Deprecated | Definition | Title/Description         |
-| ------------------------------------------------------------ | ------- | ---------------- | ---------- | ---------- | ------------------------- |
-| - [type](#kube_transition_metrics_type )                     | No      | enum (of string) | No         | -          | Metric type               |
-| - [kube_namespace](#kube_transition_metrics_kube_namespace ) | No      | string           | No         | -          | Kubernetes Namespace name |
-| - [pod_name](#kube_transition_metrics_pod_name )             | No      | string           | No         | -          | Kubernetes Pod name       |
-| - [pod](#kube_transition_metrics_pod )                       | No      | object           | No         | -          | Pod Metrics               |
-| - [container](#kube_transition_metrics_container )           | No      | object           | No         | -          | Container Metrics         |
-| - [image_pull](#kube_transition_metrics_image_pull )         | No      | object           | No         | -          | Image Pull Metrics        |
+| Property                                                     | Type             | Title/Description         |
+| ------------------------------------------------------------ | ---------------- | ------------------------- |
+| - [type](#kube_transition_metrics_type )                     | enum (of string) | Metric type               |
+| - [kube_namespace](#kube_transition_metrics_kube_namespace ) | string           | Kubernetes Namespace name |
+| - [pod_name](#kube_transition_metrics_pod_name )             | string           | Kubernetes Pod name       |
+| - [pod](#kube_transition_metrics_pod )                       | object           | Pod Metrics               |
+| - [container](#kube_transition_metrics_container )           | object           | Container Metrics         |
+| - [image_pull](#kube_transition_metrics_image_pull )         | object           | Image Pull Metrics        |
 
 | All of(Requirement)                         |
 | ------------------------------------------- |
@@ -195,17 +195,17 @@ Must be one of:
 
 **Description:** Included if kube_transition_metric_type is equal to "pod".
 
-| Property                                                                                             | Pattern | Type   | Deprecated | Definition | Title/Description            |
-| ---------------------------------------------------------------------------------------------------- | ------- | ------ | ---------- | ---------- | ---------------------------- |
-| + [creation_timestamp](#kube_transition_metrics_pod_creation_timestamp )                             | No      | string | No         | -          | Running Timestamp            |
-| - [scheduled_timestamp](#kube_transition_metrics_pod_scheduled_timestamp )                           | No      | string | No         | -          | Scheduled Timestamp          |
-| - [creation_to_scheduled_seconds](#kube_transition_metrics_pod_creation_to_scheduled_seconds )       | No      | number | No         | -          | Pod Creation to Scheduled    |
-| - [initialized_timestamp](#kube_transition_metrics_pod_initialized_timestamp )                       | No      | string | No         | -          | Running Timestamp            |
-| - [creation_to_initialized_seconds](#kube_transition_metrics_pod_creation_to_initialized_seconds )   | No      | number | No         | -          | Pod Creation to Initialized  |
-| - [scheduled_to_initialized_seconds](#kube_transition_metrics_pod_scheduled_to_initialized_seconds ) | No      | number | No         | -          | Pod Scheduled to Initialized |
-| - [ready_timestamp](#kube_transition_metrics_pod_ready_timestamp )                                   | No      | string | No         | -          | Ready Timestamp              |
-| - [creation_to_ready_seconds](#kube_transition_metrics_pod_creation_to_ready_seconds )               | No      | number | No         | -          | Pod Creation to Ready        |
-| - [initialized_to_ready_seconds](#kube_transition_metrics_pod_initialized_to_ready_seconds )         | No      | number | No         | -          | Pod Initializing to Running  |
+| Property                                                                                             | Type   | Title/Description            |
+| ---------------------------------------------------------------------------------------------------- | ------ | ---------------------------- |
+| + [creation_timestamp](#kube_transition_metrics_pod_creation_timestamp )                             | string | Running Timestamp            |
+| - [scheduled_timestamp](#kube_transition_metrics_pod_scheduled_timestamp )                           | string | Scheduled Timestamp          |
+| - [creation_to_scheduled_seconds](#kube_transition_metrics_pod_creation_to_scheduled_seconds )       | number | Pod Creation to Scheduled    |
+| - [initialized_timestamp](#kube_transition_metrics_pod_initialized_timestamp )                       | string | Running Timestamp            |
+| - [creation_to_initialized_seconds](#kube_transition_metrics_pod_creation_to_initialized_seconds )   | number | Pod Creation to Initialized  |
+| - [scheduled_to_initialized_seconds](#kube_transition_metrics_pod_scheduled_to_initialized_seconds ) | number | Pod Scheduled to Initialized |
+| - [ready_timestamp](#kube_transition_metrics_pod_ready_timestamp )                                   | string | Ready Timestamp              |
+| - [creation_to_ready_seconds](#kube_transition_metrics_pod_creation_to_ready_seconds )               | number | Pod Creation to Ready        |
+| - [initialized_to_ready_seconds](#kube_transition_metrics_pod_initialized_to_ready_seconds )         | number | Pod Initializing to Running  |
 
 #### <a name="kube_transition_metrics_pod_creation_timestamp"></a>1.6.1. Property `Metric Record > kube_transition_metrics > pod > creation_timestamp`
 
@@ -322,18 +322,18 @@ Must be one of:
 
 **Description:** Included if kube_transition_metric_type is equal to "container".
 
-| Property                                                                                               | Pattern | Type    | Deprecated | Definition | Title/Description                      |
-| ------------------------------------------------------------------------------------------------------ | ------- | ------- | ---------- | ---------- | -------------------------------------- |
-| + [name](#kube_transition_metrics_container_name )                                                     | No      | string  | No         | -          | Container name                         |
-| + [init_container](#kube_transition_metrics_container_init_container )                                 | No      | boolean | No         | -          | Init Container                         |
-| - [previous_to_running_seconds](#kube_transition_metrics_container_previous_to_running_seconds )       | No      | number  | No         | -          | Previous Container Finished to Running |
-| - [initialized_to_running_seconds](#kube_transition_metrics_container_initialized_to_running_seconds ) | No      | number  | No         | -          | Pod Initialized to Running             |
-| - [running_timestamp](#kube_transition_metrics_container_running_timestamp )                           | No      | string  | No         | -          | Running Timestamp                      |
-| - [started_timestamp](#kube_transition_metrics_container_started_timestamp )                           | No      | string  | No         | -          | Started Timestamp                      |
-| - [running_to_started_seconds](#kube_transition_metrics_container_running_to_started_seconds )         | No      | number  | No         | -          | Running to Started                     |
-| - [ready_timestamp](#kube_transition_metrics_container_ready_timestamp )                               | No      | string  | No         | -          | Started Timestamp                      |
-| - [running_to_ready_seconds](#kube_transition_metrics_container_running_to_ready_seconds )             | No      | number  | No         | -          | Running to Ready                       |
-| - [started_to_ready_seconds](#kube_transition_metrics_container_started_to_ready_seconds )             | No      | number  | No         | -          | Running to Ready                       |
+| Property                                                                                               | Type    | Title/Description                      |
+| ------------------------------------------------------------------------------------------------------ | ------- | -------------------------------------- |
+| + [name](#kube_transition_metrics_container_name )                                                     | string  | Container name                         |
+| + [init_container](#kube_transition_metrics_container_init_container )                                 | boolean | Init Container                         |
+| - [previous_to_running_seconds](#kube_transition_metrics_container_previous_to_running_seconds )       | number  | Previous Container Finished to Running |
+| - [initialized_to_running_seconds](#kube_transition_metrics_container_initialized_to_running_seconds ) | number  | Pod Initialized to Running             |
+| - [running_timestamp](#kube_transition_metrics_container_running_timestamp )                           | string  | Running Timestamp                      |
+| - [started_timestamp](#kube_transition_metrics_container_started_timestamp )                           | string  | Started Timestamp                      |
+| - [running_to_started_seconds](#kube_transition_metrics_container_running_to_started_seconds )         | number  | Running to Started                     |
+| - [ready_timestamp](#kube_transition_metrics_container_ready_timestamp )                               | string  | Started Timestamp                      |
+| - [running_to_ready_seconds](#kube_transition_metrics_container_running_to_ready_seconds )             | number  | Running to Ready                       |
+| - [started_to_ready_seconds](#kube_transition_metrics_container_started_to_ready_seconds )             | number  | Running to Ready                       |
 
 #### <a name="kube_transition_metrics_container_name"></a>1.7.1. Property `Metric Record > kube_transition_metrics > container > name`
 
@@ -460,13 +460,13 @@ Must be one of:
 
 **Description:** Included if kube_transition_metric_type is equal to "image_pull". Note that these metrics are only emitted in the event that an image pull occurs, if imagePullPolicy is set to IfNotPresent this will only occur if the image is not already present on the node.
 
-| Property                                                                        | Pattern | Type    | Deprecated | Definition | Title/Description  |
-| ------------------------------------------------------------------------------- | ------- | ------- | ---------- | ---------- | ------------------ |
-| + [container_name](#kube_transition_metrics_image_pull_container_name )         | No      | string  | No         | -          | Container name     |
-| - [already_present](#kube_transition_metrics_image_pull_already_present )       | No      | boolean | No         | -          | Already Present    |
-| + [started_timestamp](#kube_transition_metrics_image_pull_started_timestamp )   | No      | string  | No         | -          | Started Timestamp  |
-| - [finished_timestamp](#kube_transition_metrics_image_pull_finished_timestamp ) | No      | string  | No         | -          | Finished Timestamp |
-| - [duration_seconds](#kube_transition_metrics_image_pull_duration_seconds )     | No      | number  | No         | -          | Duration           |
+| Property                                                                        | Type    | Title/Description  |
+| ------------------------------------------------------------------------------- | ------- | ------------------ |
+| + [container_name](#kube_transition_metrics_image_pull_container_name )         | string  | Container name     |
+| - [already_present](#kube_transition_metrics_image_pull_already_present )       | boolean | Already Present    |
+| + [started_timestamp](#kube_transition_metrics_image_pull_started_timestamp )   | string  | Started Timestamp  |
+| - [finished_timestamp](#kube_transition_metrics_image_pull_finished_timestamp ) | string  | Finished Timestamp |
+| - [duration_seconds](#kube_transition_metrics_image_pull_duration_seconds )     | number  | Duration           |
 
 #### <a name="kube_transition_metrics_image_pull_container_name"></a>1.8.1. Property `Metric Record > kube_transition_metrics > image_pull > container_name`
 
@@ -549,4 +549,4 @@ Must be one of:
 **Description:** An additional message emitted along with metrics.
 
 ----------------------------------------------------------------------------------------------------------------------------
-Generated using [json-schema-for-humans](https://github.com/coveooss/json-schema-for-humans) on 2024-03-31 at 18:14:12 +0200
+Generated using [json-schema-for-humans](https://github.com/coveooss/json-schema-for-humans)
