@@ -70,7 +70,7 @@ func (s podStatistic) event() *zerolog.Event {
 	event.Time("creation_timestamp", s.creationTimestamp)
 	if !s.scheduledTimestamp.IsZero() {
 		event.Time("scheduled_timestamp", s.scheduledTimestamp)
-		event.Dur("creation_to_initializing_seconds", s.scheduledTimestamp.Sub(s.creationTimestamp))
+		event.Dur("creation_to_scheduled_seconds", s.scheduledTimestamp.Sub(s.creationTimestamp))
 	}
 	if !s.initializedTimestamp.IsZero() {
 		event.Time("initialized_timestamp", s.initializedTimestamp)
@@ -91,11 +91,14 @@ func (s podStatistic) event() *zerolog.Event {
 }
 
 func (s podStatistic) report() {
-	logger := s.logger()
+	metrics := zerolog.Dict()
+	metrics.Str("type", "pod")
+	metrics.Str("kube_namespace", s.namespace)
+	metrics.Str("pod_name", s.name)
+	metrics.Dict("pod", s.event())
 
-	eventLogger := logger.Output(metricOutput).With().
-		Str("kube_transition_metric_type", "pod").
-		Dict("kube_transition_metrics", s.event()).Logger()
+	eventLogger := log.Output(metricOutput).With().
+		Dict("kube_transition_metrics", metrics).Logger()
 	eventLogger.Log().Msg("")
 
 	for _, containerStatistics := range s.initContainers {

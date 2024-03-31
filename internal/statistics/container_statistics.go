@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -64,6 +65,7 @@ func (cs containerStatistic) appendNonInitFields(event *zerolog.Event) {
 func (cs containerStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
+	event.Str("name", cs.name)
 	event.Bool("init_container", cs.initContainer)
 	if cs.initContainer {
 		cs.appendInitFields(event)
@@ -102,11 +104,14 @@ func (cs containerStatistic) event() *zerolog.Event {
 }
 
 func (cs containerStatistic) report() {
-	logger := cs.logger()
+	metrics := zerolog.Dict()
+	metrics.Str("type", "container")
+	metrics.Str("kube_namespace", cs.pod.namespace)
+	metrics.Str("pod_name", cs.pod.name)
+	metrics.Dict("container", cs.event())
 
-	eventLogger := logger.Output(metricOutput).With().
-		Str("kube_transition_metric_type", "container").
-		Dict("kube_transition_metrics", cs.event()).
+	eventLogger := log.Output(metricOutput).With().
+		Dict("kube_transition_metrics", metrics).
 		Logger()
 	eventLogger.Log().Msg("")
 }

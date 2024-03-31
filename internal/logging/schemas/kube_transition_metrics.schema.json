@@ -1,36 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/backmarket-oss/kube-transition-metrics/main/internal/logging/schemas/kube_transition_metrics.schema.json",
+  "$id": "schemas/kube_transition_metrics.schema.json",
   "title": "github.com/backmarket-oss/kube-transition-metrics Record",
   "description": "JSON schema for metric logs emitted by the github.com/backmarket-oss/kube-transition-metrics controller",
   "type": "object",
   "properties": {
-    "kube_namespace": {
-      "title": "Kubernetes Namespace name",
-      "description": "The name of the Kubernetes Namespace containing the pod",
-      "type": "string"
-    },
-    "pod_name": {
-      "title": "Kubernetes Pod name",
-      "description": "The name of the Kubernetes Pod to which metrics pertain",
-      "type": "string"
-    },
-    "container_name": {
-      "title": "Container name",
-      "description": "The name of the container to which metrics pertain",
-      "type": "string"
-    },
-    "kube_transition_metric_type": {
-      "title": "Metric type",
-      "description": "The type of metric included in kube_transition_metrics",
-      "type": "string",
-      "enum": ["pod", "container", "image_pull"]
-    },
     "kube_transition_metrics": {
       "title": "Metrics",
       "description": "The metrics pertaining to pod_name",
       "type": "object",
       "properties": {
+        "type": {
+          "title": "Metric type",
+          "description": "The type of metric included in kube_transition_metrics",
+          "type": "string",
+          "enum": ["pod", "container", "image_pull"]
+        },
+        "kube_namespace": {
+          "title": "Kubernetes Namespace name",
+          "description": "The name of the Kubernetes Namespace containing the pod",
+          "type": "string"
+        },
+        "pod_name": {
+          "title": "Kubernetes Pod name",
+          "description": "The name of the Kubernetes Pod to which metrics pertain",
+          "type": "string"
+        },
         "pod": {
           "title": "Pod Metrics",
           "description": "Included if kube_transition_metric_type is equal to \"pod\".",
@@ -86,6 +81,7 @@
               "type": "number"
             }
           },
+          "additionalProperties": false,
           "required": ["creation_timestamp"]
         },
         "container": {
@@ -93,6 +89,11 @@
           "description": "Included if kube_transition_metric_type is equal to \"container\".",
           "type": "object",
           "properties": {
+            "name": {
+              "title": "Container name",
+              "description": "The name of the container to which metrics pertain",
+              "type": "string"
+            },
             "init_container": {
               "title": "Init Container",
               "description": "True if the container is an init container, otherwise false.",
@@ -142,13 +143,24 @@
               "type": "number"
             }
           },
-          "required": ["init_container"]
+          "additionalProperties": false,
+          "required": ["name", "init_container"]
         },
         "image_pull": {
           "title": "Image Pull Metrics",
           "description": "Included if kube_transition_metric_type is equal to \"image_pull\". Note that these metrics are only emitted in the event that an image pull occurs, if imagePullPolicy is set to IfNotPresent this will only occur if the image is not already present on the node.",
           "type": "object",
           "properties": {
+            "container_name": {
+              "title": "Container name",
+              "description": "The name of the container which initiated the image pull",
+              "type": "string"
+            },
+            "already_present": {
+              "title": "Already Present",
+              "description": "true if the image was already present on the machine, otherwise false.",
+              "type": "boolean"
+            },
             "started_timestamp": {
               "title": "Started Timestamp",
               "description": "The timestamp for when the image pull was first initiated. This is obtained from the Event emitted by the Kubelet and may not be 100% accurate. In the event of ImagePullFailed this time is not reset for subsequent attempts.",
@@ -167,9 +179,21 @@
               "type": "number"
             }
           },
-          "required": ["image_pull_started_timestamp"]
+          "additionalProperties": false,
+          "required": ["container_name", "started_timestamp"]
         }
-      }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        { "required": ["kube_namespace", "pod_name", "type"] },
+        {
+          "oneOf": [
+            { "required": ["pod"] },
+            { "required": ["container"] },
+            { "required": ["image_pull"] }
+          ]
+        }
+      ]
     },
     "time": {
       "title": "Metric Timestamp",
@@ -183,5 +207,6 @@
       "type": "string"
     }
   },
-  "required": ["kube_namespace", "pod_name", "kube_transition_metric_type", "kube_transition_metrics", "time"]
+  "additionalProperties": false,
+  "required": ["kube_transition_metrics", "time"]
 }

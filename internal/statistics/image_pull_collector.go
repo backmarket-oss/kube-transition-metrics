@@ -196,6 +196,10 @@ func (ev imagePulledEvent) handle(statistic *podStatistic) bool {
 
 	if imagePullStatistic.finishedTimestamp.IsZero() {
 		imagePullStatistic.finishedTimestamp = ev.event.LastTimestamp.Time
+		if imagePullStatistic.startedTimestamp.IsZero() {
+			imagePullStatistic.alreadyPresent = true
+			imagePullStatistic.startedTimestamp = imagePullStatistic.finishedTimestamp
+		}
 	}
 
 	imagePullStatistic.log(ev.event.Message)

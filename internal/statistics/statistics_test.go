@@ -8,14 +8,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/logging"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func setupLoggerToBuffer() *bytes.Buffer {
+func redirectMetricsToBuffer() *bytes.Buffer {
+	logging.Configure()
+
 	buf := &bytes.Buffer{}
 	metricOutput = buf
 
@@ -57,21 +59,15 @@ func (mts MockTimeSource) Now() time.Time {
 	return mts.mockedTime
 }
 
-func TestPodStatisticUpdate(t *testing.T) {
-	zerolog.DurationFieldInteger = false
-	zerolog.DurationFieldUnit = time.Second
+func stubImagePullCollector(ipc *imagePullCollector) {
+	go func() {
+		// Stub cancel so that when it is called it can unblock
+		<-ipc.cancelChan
+	}()
+}
 
-	// Redirect logger to buffer
-	buf := setupLoggerToBuffer()
-
-	// 1. Setup a sample pod
-	format := "2006-01-02T15:04:05Z07:00"
-	created, err := time.Parse(format, "2023-08-28T00:00:00Z")
-	if err != nil {
-		panic(err)
-	}
-
-	pod := &corev1.Pod{
+func newTestingPod(created time.Time) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			CreationTimestamp: metav1.NewTime(created),
 			Name:              "test-pod",
@@ -106,12 +102,14 @@ func TestPodStatisticUpdate(t *testing.T) {
 			},
 		},
 	}
+}
 
-	stat := podStatistic{}
+func initializePodStatistic(pod *corev1.Pod) *podStatistic {
+	stat := &podStatistic{}
 	stat.initialize(pod)
 
 	// Stub time source to fix time to constant for testing
-	stat.timeSource = MockTimeSource{created.Add(3 * time.Second)}
+	stat.timeSource = MockTimeSource{pod.CreationTimestamp.Time}
 
 	// Stub StatisticEventHandler
 	eh := &StatisticEventHandler{
@@ -119,13 +117,26 @@ func TestPodStatisticUpdate(t *testing.T) {
 	}
 	stat.imagePullCollector = newImagePullCollector(eh, "", pod.UID)
 
-	// Update the pod statistic for the "new" state
-	stat.update(pod)
+	return stat
+}
 
+func checkBasicPodStatisticFields(t *testing.T, stat *podStatistic) {
+	t.Helper()
 	assert.NotZero(t, stat.scheduledTimestamp, "scheduledTimestamp was not set")
 	assert.NotZero(
 		t, stat.initializedTimestamp, "initializedTimestamp was not set")
 	assert.NotEmpty(t, stat.containers, "containers map was not populated")
+}
+
+func TestImageCollectorCancel(t *testing.T) {
+	format := "2006-01-02T15:04:05Z07:00"
+	created, err := time.Parse(format, "2024-03-31T00:00:00Z")
+	if err != nil {
+		panic(err)
+	}
+	pod := newTestingPod(created)
+	stat := initializePodStatistic(pod)
+	stat.update(pod)
 
 	// Check that the imagePullCollector would have been canceled for the right
 	// reasons upon pod initialization.
@@ -141,7 +152,10 @@ func TestPodStatisticUpdate(t *testing.T) {
 		assert.Fail(
 			t, "ImagePullCollector cancel channel was not written to within 1 second")
 	}
+}
 
+func decodeMetrics(t *testing.T, buf *bytes.Buffer) []map[string]interface{} {
+	t.Helper()
 	decoder := json.NewDecoder(buf)
 	statisticLogs := make([]map[string]interface{}, 0)
 	for {
@@ -152,14 +166,40 @@ func TestPodStatisticUpdate(t *testing.T) {
 			t.Errorf("Invalid JSON output")
 		}
 
-		if mapDocument, ok := document.(map[string]interface{}); ok {
-			if _, ok := mapDocument["kube_transition_metric_type"]; ok {
-				statisticLogs = append(statisticLogs, mapDocument)
-			}
-		} else {
-			t.Errorf("Log document is not a map")
+		if !assert.IsType(t, make(map[string]interface{}), document, "Log document is not an object") {
+			continue
 		}
+		mapDocument, _ := document.(map[string]interface{})
+		if !assert.IsType(t, make(map[string]interface{}), mapDocument["kube_transition_metrics"],
+			"kube_transition_metric key of log document is not an object") {
+			continue
+		}
+		mapMetrics, _ := mapDocument["kube_transition_metrics"].(map[string]interface{})
+		statisticLogs = append(statisticLogs, mapMetrics)
 	}
+
+	return statisticLogs
+}
+
+func TestPodStatisticUpdate(t *testing.T) {
+	buf := redirectMetricsToBuffer()
+
+	format := "2006-01-02T15:04:05Z07:00"
+	created, err := time.Parse(format, "2023-08-28T00:00:00Z")
+	if err != nil {
+		panic(err)
+	}
+	pod := newTestingPod(created)
+	stat := initializePodStatistic(pod)
+
+	stubImagePullCollector(&stat.imagePullCollector)
+	stat.timeSource = MockTimeSource{pod.CreationTimestamp.Time.Add(3 * time.Second)}
+
+	// Update the pod statistic for the "new" state
+	stat.update(pod)
+
+	checkBasicPodStatisticFields(t, stat)
+	statisticLogs := decodeMetrics(t, buf)
 
 	if !assert.Len(
 		t, statisticLogs, 2, "Not the correct number of statistic logs") {
@@ -171,39 +211,34 @@ func TestPodStatisticUpdate(t *testing.T) {
 		assert.Equal(t, "test-pod", log["pod_name"])
 	}
 
-	sharedAssertations(statisticLogs[0])
-
+	metrics := statisticLogs[0]
+	sharedAssertations(metrics)
 	assert.Equal(t,
-		"pod", statisticLogs[0]["kube_transition_metric_type"],
+		"pod", metrics["type"],
 		"first log metric is not of type pod")
+	if assert.IsType(t, make(map[string]interface{}), metrics["pod"]) {
+		podMetrics, _ := metrics["pod"].(map[string]interface{})
+		assert.InDelta(t,
+			2*time.Second.Seconds(), podMetrics["creation_to_initialized_seconds"], 1e-5,
+			"Initialized latency is not correct")
+		assert.InDelta(t,
+			time.Second.Seconds(), podMetrics["creation_to_scheduled_seconds"], 1e-5,
+			"Scheduled latency is not correct")
+	}
 
-	assert.IsType(t,
-		make(map[string]interface{}),
-		statisticLogs[0]["kube_transition_metrics"],
-		"key kube_transition_metrics is not a JSON object")
-	metrics, _ :=
-		statisticLogs[0]["kube_transition_metrics"].(map[string]interface{})
-	assert.InDelta(t,
-		2*time.Second.Seconds(), metrics["creation_to_running_seconds"], 1e-5,
-		"Initialized latency is not correct")
-	assert.InDelta(t,
-		time.Second.Seconds(), metrics["creation_to_initializing_seconds"], 1e-5,
-		"Scheduled latency is not correct")
-
-	sharedAssertations(statisticLogs[1])
+	metrics = statisticLogs[1]
+	sharedAssertations(metrics)
 	assert.Equal(t,
-		"container", statisticLogs[1]["kube_transition_metric_type"],
+		"container", metrics["type"],
 		"second log metric is not of type container")
-	assert.IsType(t,
-		make(map[string]interface{}), statisticLogs[1]["kube_transition_metrics"],
-		"key kube_transition_metrics is not a JSON object")
-	metrics, _ =
-		statisticLogs[1]["kube_transition_metrics"].(map[string]interface{})
-	assert.Equal(t,
-		false, metrics["init_container"], "Container should not be an init container")
-	assert.InDelta(t,
-		2*time.Second.Seconds(), metrics["initialized_to_running_seconds"], 1e-5,
-		"Container runnning latency is not correct")
+	if assert.IsType(t, make(map[string]interface{}), metrics["container"]) {
+		containerMetrics, _ := metrics["container"].(map[string]interface{})
+		assert.Equal(t,
+			false, containerMetrics["init_container"], "Container should not be an init container")
+		assert.InDelta(t,
+			2*time.Second.Seconds(), containerMetrics["initialized_to_running_seconds"], 1e-5,
+			"Container runnning latency is not correct")
+	}
 }
 
 func TestContainerStatisticUpdate(t *testing.T) {
