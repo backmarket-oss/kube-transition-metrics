@@ -56,8 +56,8 @@ func (cs containerStatistic) appendInitFields(event *zerolog.Event) {
 }
 
 func (cs containerStatistic) appendNonInitFields(event *zerolog.Event) {
-	if !cs.runningTimestamp.IsZero() && !cs.pod.initializingTimestamp.IsZero() {
-		event.Dur("initialized_to_running_seconds", cs.runningTimestamp.Sub(cs.pod.initializingTimestamp))
+	if !cs.runningTimestamp.IsZero() && !cs.pod.scheduledTimestamp.IsZero() {
+		event.Dur("initialized_to_running_seconds", cs.runningTimestamp.Sub(cs.pod.scheduledTimestamp))
 	}
 }
 

@@ -22,10 +22,10 @@ type podStatistic struct {
 	creationTimestamp time.Time
 
 	// The timestamp for when the pod was scheduled.
-	initializingTimestamp time.Time
+	scheduledTimestamp time.Time
 
 	// The timestamp for when the pod was initialized.
-	runningTimestamp time.Time
+	initializedTimestamp time.Time
 
 	// The timestamp for when the pod first turned Ready.
 	readyTimestamp time.Time
@@ -68,22 +68,22 @@ func (s podStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
 	event.Time("creation_timestamp", s.creationTimestamp)
-	if !s.initializingTimestamp.IsZero() {
-		event.Time("initializing_timestamp", s.initializingTimestamp)
-		event.Dur("creation_to_initializing_seconds", s.initializingTimestamp.Sub(s.creationTimestamp))
+	if !s.scheduledTimestamp.IsZero() {
+		event.Time("scheduled_timestamp", s.scheduledTimestamp)
+		event.Dur("creation_to_initializing_seconds", s.scheduledTimestamp.Sub(s.creationTimestamp))
 	}
-	if !s.runningTimestamp.IsZero() {
-		event.Time("running_timestamp", s.runningTimestamp)
-		event.Dur("creation_to_running_seconds", s.runningTimestamp.Sub(s.creationTimestamp))
-		if !s.initializingTimestamp.IsZero() {
-			event.Dur("initializing_to_running_seconds", s.runningTimestamp.Sub(s.initializingTimestamp))
+	if !s.initializedTimestamp.IsZero() {
+		event.Time("initialized_timestamp", s.initializedTimestamp)
+		event.Dur("creation_to_initialized_seconds", s.initializedTimestamp.Sub(s.creationTimestamp))
+		if !s.scheduledTimestamp.IsZero() {
+			event.Dur("scheduled_to_initialized_seconds", s.initializedTimestamp.Sub(s.scheduledTimestamp))
 		}
 	}
 	if !s.readyTimestamp.IsZero() {
 		event.Time("ready_timestamp", s.readyTimestamp)
 		event.Dur("creation_to_ready_seconds", s.readyTimestamp.Sub(s.creationTimestamp))
-		if !s.runningTimestamp.IsZero() {
-			event.Dur("running_to_ready_seconds", s.readyTimestamp.Sub(s.runningTimestamp))
+		if !s.initializedTimestamp.IsZero() {
+			event.Dur("initialized_to_ready_seconds", s.readyTimestamp.Sub(s.initializedTimestamp))
 		}
 	}
 
@@ -119,16 +119,14 @@ func (s *podStatistic) update(pod *corev1.Pod) {
 		//nolint:exhaustive
 		switch condition.Type {
 		case corev1.PodScheduled:
-			if s.initializingTimestamp.IsZero() {
-				s.initializingTimestamp = condition.LastTransitionTime.Time
+			if s.scheduledTimestamp.IsZero() {
+				s.scheduledTimestamp = condition.LastTransitionTime.Time
 			}
 		case corev1.PodInitialized:
-			// Pod Initialized occursafter all images pulled, no need to continue to
-			// track
-
-			if s.runningTimestamp.IsZero() {
+			if s.initializedTimestamp.IsZero() {
+				// Pod Initialized occurs, after all images pulled, no need to continue to track
 				go s.imagePullCollector.cancel("pod_initialized")
-				s.runningTimestamp = condition.LastTransitionTime.Time
+				s.initializedTimestamp = condition.LastTransitionTime.Time
 			}
 		case corev1.PodReady:
 			if s.readyTimestamp.IsZero() {
