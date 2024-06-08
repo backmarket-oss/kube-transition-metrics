@@ -19,6 +19,8 @@ repos:
   hooks:
   - id: go-fmt
   - id: golangci-lint
+    args:
+    - --timeout=5m
   - id: go-mod-tidy
 - repo: local
   hooks:
