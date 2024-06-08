@@ -22,6 +22,16 @@ repos:
   - id: go-mod-tidy
 - repo: local
   hooks:
+    - id: json-schema-for-humans
+      name: json-schema-for-humans
+      description: Generate doc/SCHEMA.md with https://github.com/coveooss/json-schema-for-humans
+      entry: bash -c 'python -m venv .venv && source .venv/bin/activate && pip install --quiet json-schema-for-humans && generate-schema-doc --config-file .jsfh-conf.yaml internal/logging/schemas doc/SCHEMA.md'
+      language: system
+      files: internal/logging/schemas
+      types:
+      - json
+- repo: local
+  hooks:
   - id: trufflehog
     name: TruffleHog
     description: Detect secrets in your data.
