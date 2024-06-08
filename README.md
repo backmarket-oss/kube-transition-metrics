@@ -68,8 +68,105 @@ podAnnotations:
 
 ## Available metrics
 
-For a detailed overview of available metrics, see
-[internal/statistics/README.md](internal/statistics/README.md).
+This Pod life-cycle statistics are emitted in JSON format to `stdout`.
+These logs can be integrated with log processing pipelines like ELK or DataDog.
+Distinguish metric logs from debug and informative logs by the presence of a
+top-level `kube_transition_metrics` key.
+
+### Log Structure
+
+All non-metric logs include a top-level `level` key, which can be: `debug`,
+`info`, `warn`, `error`, or `panic`.
+Non-metric logs are sent to `stderr`, whereas life-cycle metrics are sent to
+`stdout`.
+
+### Examples:
+
+A complete pod record:
+
+```json
+{
+  "kube_transition_metrics": {
+    "type": "pod",
+    "kube_namespace": "default",
+    "pod_name": "flat-earth",
+    "pod": {
+      "creation_timestamp": "2024-06-08T11:14:00+02:00",
+      "scheduled_timestamp": "2024-06-08T11:14:00+02:00",
+      "creation_to_scheduled_seconds": 0,
+      "initialized_timestamp": "2024-06-08T11:14:01+02:00",
+      "creation_to_initialized_seconds": 1,
+      "scheduled_to_initialized_seconds": 1,
+      "ready_timestamp": "2024-06-08T11:14:02+02:00",
+      "creation_to_ready_seconds": 2,
+      "initialized_to_ready_seconds": 1
+    }
+  },
+  "time": "2024-06-08T11:14:06+02:00"
+}
+```
+
+A complete non-init container record:
+```json
+{
+  "kube_transition_metrics": {
+    "type": "container",
+    "kube_namespace": "default",
+    "pod_name": "flat-earth",
+    "container": {
+      "name": "consipire",
+      "init_container": false,
+      "initialized_to_running_seconds": 2.785652,
+      "running_timestamp": "2024-06-08T11:14:02+02:00",
+      "started_timestamp": "2024-06-08T11:14:02+02:00",
+      "running_to_started_seconds": 0,
+      "ready_timestamp": "2024-06-08T11:14:02+02:00",
+      "running_to_ready_seconds": 0,
+      "started_to_ready_seconds": 0
+    }
+  },
+  "time": "2024-06-08T11:14:06+02:00"
+}
+```
+
+A complete init container record:
+```json
+{
+  "kube_transition_metrics": {
+    "type": "container",
+    "kube_namespace": "default",
+    "pod_name": "flat-earth",
+    "container": {
+      "name": "subliminal-messaging",
+      "init_container": true,
+      "ready_timestamp": "2024-06-08T11:14:01+02:00"
+    }
+  },
+  "time": "2024-06-08T11:14:06+02:00"
+}
+```
+
+An image pull record:
+```json
+{
+  "kube_transition_metrics": {
+    "type": "image_pull",
+    "image_pull": {
+      "container_name": "conspire",
+      "already_present": true,
+      "started_timestamp": "2024-06-08T11:14:01+02:00",
+      "finished_timestamp": "2024-06-08T11:14:01+02:00",
+      "duration_seconds": 0
+    },
+    "kube_namespace": "default",
+    "pod_name": "flat-earth"
+  },
+  "time": "2024-06-08T11:14:01+02:00",
+  "message": "Container image \"docker.io/library/nginx:latest\" already present on machine"
+}
+```
+
+For a detailed overview of available metrics, see [doc/SCHEMA.md](doc/SCHEMA.md).
 
 ## Contributing
 
