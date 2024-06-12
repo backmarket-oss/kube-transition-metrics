@@ -200,12 +200,12 @@ Must be one of:
 | + [creation_timestamp](#kube_transition_metrics_pod_creation_timestamp )                             | string | Running Timestamp            |
 | - [scheduled_timestamp](#kube_transition_metrics_pod_scheduled_timestamp )                           | string | Scheduled Timestamp          |
 | - [creation_to_scheduled_seconds](#kube_transition_metrics_pod_creation_to_scheduled_seconds )       | number | Pod Creation to Scheduled    |
-| - [initialized_timestamp](#kube_transition_metrics_pod_initialized_timestamp )                       | string | Running Timestamp            |
+| - [initialized_timestamp](#kube_transition_metrics_pod_initialized_timestamp )                       | string | initialized Timestamp        |
 | - [creation_to_initialized_seconds](#kube_transition_metrics_pod_creation_to_initialized_seconds )   | number | Pod Creation to Initialized  |
 | - [scheduled_to_initialized_seconds](#kube_transition_metrics_pod_scheduled_to_initialized_seconds ) | number | Pod Scheduled to Initialized |
 | - [ready_timestamp](#kube_transition_metrics_pod_ready_timestamp )                                   | string | Ready Timestamp              |
 | - [creation_to_ready_seconds](#kube_transition_metrics_pod_creation_to_ready_seconds )               | number | Pod Creation to Ready        |
-| - [initialized_to_ready_seconds](#kube_transition_metrics_pod_initialized_to_ready_seconds )         | number | Pod Initializing to Running  |
+| - [initialized_to_ready_seconds](#kube_transition_metrics_pod_initialized_to_ready_seconds )         | number | Pod Initialized to Ready     |
 
 #### <a name="kube_transition_metrics_pod_creation_timestamp"></a>1.6.1. Property `Metric Record > kube_transition_metrics > pod > creation_timestamp`
 
@@ -244,7 +244,7 @@ Must be one of:
 
 #### <a name="kube_transition_metrics_pod_initialized_timestamp"></a>1.6.4. Property `Metric Record > kube_transition_metrics > pod > initialized_timestamp`
 
-**Title:** Running Timestamp
+**Title:** initialized Timestamp
 
 |              |             |
 | ------------ | ----------- |
@@ -301,7 +301,7 @@ Must be one of:
 
 #### <a name="kube_transition_metrics_pod_initialized_to_ready_seconds"></a>1.6.9. Property `Metric Record > kube_transition_metrics > pod > initialized_to_ready_seconds`
 
-**Title:** Pod Initializing to Running
+**Title:** Pod Initialized to Ready
 
 |              |          |
 | ------------ | -------- |

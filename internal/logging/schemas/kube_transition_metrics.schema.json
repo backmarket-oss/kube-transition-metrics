@@ -49,7 +49,7 @@
               "type": "number"
             },
             "initialized_timestamp": {
-              "title": "Running Timestamp",
+              "title": "initialized Timestamp",
               "description": "The timestamp for when the Pod first entered Running state (all init containers exited successfuly and images are pulled). In the event of a pod restart this time is not reset.",
               "type": "string",
               "format": "date-time"
@@ -76,7 +76,7 @@
               "type": "number"
             },
             "initialized_to_ready_seconds": {
-              "title": "Pod Initializing to Running",
+              "title": "Pod Initialized to Ready",
               "description": "The time in seconds from the pod was initialized (Running state) to when it first bacame Ready.",
               "type": "number"
             }
