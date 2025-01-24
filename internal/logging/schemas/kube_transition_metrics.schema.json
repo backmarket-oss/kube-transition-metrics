@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/kube_transition_metrics.schema.json",
+  "title": "Metric Record",
+  "description": "JSON schema for metric logs emitted by the kube-transition-metrics controller",
+  "type": "object",
+  "properties": {
+    "kube_transition_metrics": {
+      "title": "Metrics",
+      "description": "The metrics pertaining to pod_name",
+      "type": "object",
+      "properties": {
+        "type": {
+          "title": "Metric type",
+          "description": "The type of metric included in kube_transition_metrics",
+          "type": "string",
+          "enum": ["pod", "container", "image_pull"]
+        },
+        "kube_namespace": {
+          "title": "Kubernetes Namespace name",
+          "description": "The name of the Kubernetes Namespace containing the pod",
+          "type": "string"
+        },
+        "pod_name": {
+          "title": "Kubernetes Pod name",
+          "description": "The name of the Kubernetes Pod to which metrics pertain",
+          "type": "string"
+        },
+        "pod": {
+          "title": "Pod Metrics",
+          "description": "Included if kube_transition_metric_type is equal to \"pod\".",
+          "type": "object",
+          "properties": {
+            "creation_timestamp": {
+              "title": "Running Timestamp",
+              "description": "The timestamp for when the Pod was created.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "scheduled_timestamp": {
+              "title": "Scheduled Timestamp",
+              "description": "The timestamp for when the Pod was scheduled (Pending->Initializing state).",
+              "type": "string",
+              "format": "date-time"
+            },
+            "creation_to_scheduled_seconds": {
+              "title": "Pod Creation to Scheduled",
+              "description": "The time in seconds it took to schedule the Pod.",
+              "type": "number"
+            },
+            "initialized_timestamp": {
+              "title": "initialized Timestamp",
+              "description": "The timestamp for when the Pod first entered Running state (all init containers exited successfuly and images are pulled). In the event of a pod restart this time is not reset.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "creation_to_initialized_seconds": {
+              "title": "Pod Creation to Initialized",
+              "description": "The time in seconds from the pod creation to when it was initialized.",
+              "type": "number"
+            },
+            "scheduled_to_initialized_seconds": {
+              "title": "Pod Scheduled to Initialized",
+              "description": "The time in seconds from the pod was scheduled to when it was initialized (Initializing->Running state).",
+              "type": "number"
+            },
+            "ready_timestamp": {
+              "title": "Ready Timestamp",
+              "description": "The timestamp for when the Pod first became Ready (all containers had readinessProbe success). In the event of a pod restart this time is not reset.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "creation_to_ready_seconds": {
+              "title": "Pod Creation to Ready",
+              "description": "The time in seconds from the pod creation to becoming Ready.",
+              "type": "number"
+            },
+            "initialized_to_ready_seconds": {
+              "title": "Pod Initialized to Ready",
+              "description": "The time in seconds from the pod was initialized (Running state) to when it first bacame Ready.",
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "required": ["creation_timestamp"]
+        },
+        "container": {
+          "title": "Container Metrics",
+          "description": "Included if kube_transition_metric_type is equal to \"container\".",
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Container name",
+              "description": "The name of the container to which metrics pertain",
+              "type": "string"
+            },
+            "init_container": {
+              "title": "Init Container",
+              "description": "True if the container is an init container, otherwise false.",
+              "type": "boolean"
+            },
+            "previous_to_running_seconds": {
+              "title": "Previous Container Finished to Running",
+              "description": "The time in seconds from the previous init container becoming Ready (exited 0) to this container running. Only set for init containers, absent for the first init container.",
+              "type": "number"
+            },
+            "initialized_to_running_seconds": {
+              "title": "Pod Initialized to Running",
+              "description": "The time in seconds from the Pod becoming initialized (all init containers exited 0) to this container running. Only set for non-init containers.",
+              "type": "number"
+            },
+            "running_timestamp": {
+              "title": "Running Timestamp",
+              "description": "The timestamp for when the container first entered Running state (first fork(2)/execve(2) in container environment). In the event of a pod restart, this timestamp is NOT updated.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "started_timestamp": {
+              "title": "Started Timestamp",
+              "description": "The timestamp for when the container first started state (startupProbe success). In the event of a pod restart, this timestamp is NOT updated. Only set for non-init containers.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "running_to_started_seconds": {
+              "title": "Running to Started",
+              "description": "The time in seconds from the container becoming running to this container started. Only set for non-init containers.",
+              "type": "number"
+            },
+            "ready_timestamp": {
+              "title": "Started Timestamp",
+              "description": "The timestamp for when the container first ready state (readinessProbe success). In the event of a pod restart, this timestamp is NOT updated.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "running_to_ready_seconds": {
+              "title": "Running to Ready",
+              "description": "The time in seconds from the container becoming running to this container ready. In init containers, this is the time the container exited with a successful status.",
+              "type": "number"
+            },
+            "started_to_ready_seconds": {
+              "title": "Running to Ready",
+              "description": "The time in seconds from the container becoming started to this container ready. Only set for non-init containers.",
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "required": ["name", "init_container"]
+        },
+        "image_pull": {
+          "title": "Image Pull Metrics",
+          "description": "Included if kube_transition_metric_type is equal to \"image_pull\". Note that these metrics are only emitted in the event that an image pull occurs, if imagePullPolicy is set to IfNotPresent this will only occur if the image is not already present on the node.",
+          "type": "object",
+          "properties": {
+            "container_name": {
+              "title": "Container name",
+              "description": "The name of the container which initiated the image pull",
+              "type": "string"
+            },
+            "already_present": {
+              "title": "Already Present",
+              "description": "true if the image was already present on the machine, otherwise false.",
+              "type": "boolean"
+            },
+            "started_timestamp": {
+              "title": "Started Timestamp",
+              "description": "The timestamp for when the image pull was first initiated. This is obtained from the Event emitted by the Kubelet and may not be 100% accurate. In the event of ImagePullFailed this time is not reset for subsequent attempts.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "finished_timestamp": {
+              "title": "Finished Timestamp",
+              "description": "The timestamp for when the image pull was finished. This is obtained from the Event emitted by the Kubelet and may not be 100% accurate.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "duration_seconds": {
+              "title": "Duration",
+              "description": "The duration in seconds to complete the image pull successfully. This is based purely off the started_timestamp and finished_timestamp, which themselves are based on Event timestamps which are rounded to seconds. The duration here may not match perfectly the duration seen in the kubelet image pull message, due to slight latency in reporting of image pull Events and truncation of timestamps to seconds.",
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "required": ["container_name", "started_timestamp"]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        { "required": ["kube_namespace", "pod_name", "type"] },
+        {
+          "oneOf": [
+            { "required": ["pod"] },
+            { "required": ["container"] },
+            { "required": ["image_pull"] }
+          ]
+        }
+      ]
+    },
+    "time": {
+      "title": "Metric Timestamp",
+      "description": "The time at which this metric was emitted.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "message": {
+      "title": "Message",
+      "description": "An additional message emitted along with metrics.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["kube_transition_metrics", "time"]
+}

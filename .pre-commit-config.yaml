@@ -1,5 +1,10 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+default_install_hook_types:
+- pre-commit
+- pre-push
+default_stages:
+- pre-commit
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.4.0
@@ -9,22 +14,24 @@ repos:
   - id: check-yaml
     exclude: ^charts/kube-transition-metrics/templates/
   - id: check-added-large-files
-- repo: https://github.com/golangci/golangci-lint
-  rev: v1.52.2
-  hooks:
-  - id: golangci-lint
-    name: golangci-lint
-    description: Fast linters runner for Go.
-    entry: golangci-lint run --timeout=2m --fix --out-format checkstyle
-    types: [go]
-    language: golang
-    pass_filenames: false
 - repo: https://github.com/dnephin/pre-commit-golang
   rev: v0.5.1
   hooks:
   - id: go-fmt
   - id: golangci-lint
+    args:
+    - --timeout=5m
   - id: go-mod-tidy
+- repo: local
+  hooks:
+    - id: json-schema-for-humans
+      name: json-schema-for-humans
+      description: Generate doc/SCHEMA.md with https://github.com/coveooss/json-schema-for-humans
+      entry: bash -c 'python -m venv .venv && source .venv/bin/activate && pip install --quiet json-schema-for-humans && generate-schema-doc --config-file .jsfh-conf.yaml internal/logging/schemas doc/SCHEMA.md'
+      language: system
+      files: internal/logging/schemas
+      types:
+      - json
 - repo: local
   hooks:
   - id: trufflehog
@@ -32,11 +39,13 @@ repos:
     description: Detect secrets in your data.
     entry: bash -c 'docker run --rm -v "$PWD:/src" ghcr.io/trufflesecurity/trufflehog:latest git --branch=HEAD file:///src --fail --only-verified'
     language: system
-    stages: ["commit", "push"]
+    stages:
+    - pre-push
 - repo: local
   hooks:
   - id: semgrep
     name: semgrep
     entry: bash -c 'docker run --rm -v "$PWD:/src" returntocorp/semgrep semgrep --config p/ci --error --skip-unknown-extensions'
     language: system
-    stages: ["commit", "push"]
+    stages:
+    - pre-push

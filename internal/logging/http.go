@@ -1,4 +1,4 @@
-package zerologhttp
+package logging
 
 import (
 	"fmt"
@@ -9,18 +9,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type responseLogger struct {
+type httpResponseLogger struct {
 	responseWriter http.ResponseWriter
 	statusCode     int
 	bodyBytesSent  int64
 }
 
-func (rl *responseLogger) WriteHeader(code int) {
+func (rl *httpResponseLogger) WriteHeader(code int) {
 	rl.statusCode = code
 	rl.responseWriter.WriteHeader(code)
 }
 
-func (rl *responseLogger) Write(data []byte) (int, error) {
+func (rl *httpResponseLogger) Write(data []byte) (int, error) {
 	length, err := rl.responseWriter.Write(data)
 	rl.bodyBytesSent += int64(length)
 
@@ -31,21 +31,21 @@ func (rl *responseLogger) Write(data []byte) (int, error) {
 	return length, err
 }
 
-func (rl *responseLogger) Header() http.Header {
+func (rl *httpResponseLogger) Header() http.Header {
 	return rl.responseWriter.Header()
 }
 
-// Handler is a custom request logger middleware.
-type Handler struct {
+// HTTPHandler is a custom request logger middleware.
+type HTTPHandler struct {
 	handler http.Handler
 }
 
-// NewHandler creates a new Handler middleware.
-func NewHandler(handler http.Handler) *Handler {
-	return &Handler{handler: handler}
+// NewHTTPHandler creates a new Handler middleware.
+func NewHTTPHandler(handler http.Handler) *HTTPHandler {
+	return &HTTPHandler{handler: handler}
 }
 
-func (c *Handler) logger() *zerolog.Logger {
+func (c *HTTPHandler) logger() *zerolog.Logger {
 	logger := log.With().
 		Str("subsystem", "http").
 		Logger()
@@ -53,14 +53,14 @@ func (c *Handler) logger() *zerolog.Logger {
 	return &logger
 }
 
-func (c *Handler) ServeHTTP(
+func (c *HTTPHandler) ServeHTTP(
 	writer http.ResponseWriter,
 	req *http.Request,
 ) {
 	startTime := time.Now()
 	logger := c.logger()
 
-	responseLogger := &responseLogger{responseWriter: writer}
+	responseLogger := &httpResponseLogger{responseWriter: writer}
 	// Call the next handler in the chain
 	c.handler.ServeHTTP(responseLogger, req)
 

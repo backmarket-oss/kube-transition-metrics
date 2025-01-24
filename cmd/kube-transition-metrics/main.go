@@ -6,12 +6,11 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/logging"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics"
-	"github.com/BackMarket-oss/kube-transition-metrics/internal/zerologhttp"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -61,10 +60,11 @@ func getKubeconfig(options *options.Options) *rest.Config {
 }
 
 func main() {
+	logging.Configure()
 	prommetrics.Register()
 
 	options := options.Parse()
-	zerolog.SetGlobalLevel(options.LogLevel)
+	logging.SetOptions(options)
 
 	config := getKubeconfig(options)
 	clientset, err := kubernetes.NewForConfig(config)
@@ -80,7 +80,7 @@ func main() {
 	go podCollector.Run(clientset)
 
 	http.Handle("/metrics", promhttp.Handler())
-	handler := zerologhttp.NewHandler(http.DefaultServeMux)
+	handler := logging.NewHTTPHandler(http.DefaultServeMux)
 	// No timeouts can be set, but that's OK for us as this HTTP server will not be
 	// exposed publicly.
 	//nolint:gosec

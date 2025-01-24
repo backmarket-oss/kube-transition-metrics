@@ -46,8 +46,11 @@ func (s *podStatistic) initialize(pod *corev1.Pod) {
 	s.initContainers = make(map[string]*containerStatistic)
 	s.containers = make(map[string]*containerStatistic)
 
+	var previous *containerStatistic
 	for _, container := range pod.Spec.InitContainers {
 		s.initContainers[container.Name] = newContainerStatistic(s, true, container)
+		s.initContainers[container.Name].previous = previous
+		previous = s.initContainers[container.Name]
 	}
 	for _, container := range pod.Spec.Containers {
 		s.containers[container.Name] = newContainerStatistic(s, false, container)
@@ -64,31 +67,38 @@ func (s podStatistic) logger() zerolog.Logger {
 func (s podStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
+	event.Time("creation_timestamp", s.creationTimestamp)
 	if !s.scheduledTimestamp.IsZero() {
-		event.Float64(
-			"scheduled_latency",
-			s.scheduledTimestamp.Sub(s.creationTimestamp).Seconds())
+		event.Time("scheduled_timestamp", s.scheduledTimestamp)
+		event.Dur("creation_to_scheduled_seconds", s.scheduledTimestamp.Sub(s.creationTimestamp))
 	}
 	if !s.initializedTimestamp.IsZero() {
-		event.Float64(
-			"initialized_latency",
-			s.initializedTimestamp.Sub(s.creationTimestamp).Seconds())
+		event.Time("initialized_timestamp", s.initializedTimestamp)
+		event.Dur("creation_to_initialized_seconds", s.initializedTimestamp.Sub(s.creationTimestamp))
+		if !s.scheduledTimestamp.IsZero() {
+			event.Dur("scheduled_to_initialized_seconds", s.initializedTimestamp.Sub(s.scheduledTimestamp))
+		}
 	}
 	if !s.readyTimestamp.IsZero() {
-		event.Float64(
-			"ready_latency",
-			s.readyTimestamp.Sub(s.creationTimestamp).Seconds())
+		event.Time("ready_timestamp", s.readyTimestamp)
+		event.Dur("creation_to_ready_seconds", s.readyTimestamp.Sub(s.creationTimestamp))
+		if !s.initializedTimestamp.IsZero() {
+			event.Dur("initialized_to_ready_seconds", s.readyTimestamp.Sub(s.initializedTimestamp))
+		}
 	}
 
 	return event
 }
 
 func (s podStatistic) report() {
-	logger := s.logger()
+	metrics := zerolog.Dict()
+	metrics.Str("type", "pod")
+	metrics.Str("kube_namespace", s.namespace)
+	metrics.Str("pod_name", s.name)
+	metrics.Dict("pod", s.event())
 
-	eventLogger := logger.Output(metricOutput).With().
-		Str("kube_transition_metric_type", "pod").
-		Dict("kube_transition_metrics", s.event()).Logger()
+	eventLogger := log.Output(metricOutput).With().
+		Dict("kube_transition_metrics", metrics).Logger()
 	eventLogger.Log().Msg("")
 
 	for _, containerStatistics := range s.initContainers {
@@ -116,10 +126,8 @@ func (s *podStatistic) update(pod *corev1.Pod) {
 				s.scheduledTimestamp = condition.LastTransitionTime.Time
 			}
 		case corev1.PodInitialized:
-			// Pod Initialized occursafter all images pulled, no need to continue to
-			// track
-
 			if s.initializedTimestamp.IsZero() {
+				// Pod Initialized occurs, after all images pulled, no need to continue to track
 				go s.imagePullCollector.cancel("pod_initialized")
 				s.initializedTimestamp = condition.LastTransitionTime.Time
 			}
