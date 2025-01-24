@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/prometheus/client_golang v1.16.0
-	github.com/rs/zerolog v1.30.0
+	github.com/rs/zerolog v1.33.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
