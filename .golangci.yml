@@ -5,26 +5,20 @@ issues:
       linters:
         - funlen
         - gosec
+    - path: ^internal/options/
+      linters:
+        - mnd
 linters:
   enable-all: true
   disable:
-    - deadcode
     - depguard
-    - exhaustivestruct
     - exhaustruct
     - godox
     - gofumpt
-    - golint
-    - ifshort
-    - interfacer
     - ireturn
-    - maligned
-    - nosnakecase
     - paralleltest
-    - scopelint
-    - structcheck
+    - tenv
     - testpackage
-    - varcheck
     - wsl
 linters-settings:
   stylecheck:

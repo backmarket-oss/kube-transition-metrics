@@ -37,11 +37,11 @@ func NewStatisticEventHandler(options *options.Options) *StatisticEventHandler {
 }
 
 // Publish sends an event to the StatisticEventHandler loop.
-func (eh StatisticEventHandler) Publish(ev statisticEvent) {
+func (eh *StatisticEventHandler) Publish(ev statisticEvent) {
 	eh.eventChan.Publish(ev)
 }
 
-func (eh StatisticEventHandler) isBlacklisted(uid types.UID) bool {
+func (eh *StatisticEventHandler) isBlacklisted(uid types.UID) bool {
 	for _, blacklistedUID := range eh.blacklistUIDs {
 		if blacklistedUID == uid {
 			return true
