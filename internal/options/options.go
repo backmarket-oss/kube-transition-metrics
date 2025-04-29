@@ -34,26 +34,22 @@ func Parse() *Options {
 		"The path to the kube configuration file, if it's not set the value of "+
 			"`$KUBECONFIG` will be used, if that's not set `$HOME/.kube/config` will "+
 			"be used.")
-	//nolint:gomnd
 	flag.Float64Var(
 		&options.ImagePullCancelDelay,
 		"image-pull-cancel-delay",
 		3,
 		"The delay before canceling an image pull routine to ensure events are "+
 			"flushed (ADVANCED)")
-	//nolint:gomnd
 	flag.Int64Var(
 		&options.KubeWatchTimeout,
 		"kube-watch-timeout",
 		60,
 		"The Kubernetes Watch API timeout (ADVANCED)")
-	//nolint:gomnd
 	flag.Int64Var(
 		&options.KubeWatchMaxEvents,
 		"kube-watch-max-events",
 		100,
 		"The Kubernetes Watch maximum events per response (ADVANCED)")
-	//nolint:gomnd
 	flag.IntVar(
 		&options.StatisticEventQueueLength,
 		"statistic-event-queue-length",

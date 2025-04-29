@@ -36,103 +36,23 @@ func NewPodCollector(
 	}
 }
 
-// collectInitialPods generates a list of Pod UIDs currently existing on the
-// cluster. This is used to filter pre-existing Pods by the
-// StatisticEventHandler to avoid generating inaccurate or incomplete metrics.
-// It returns the list of Pod UIDs, the resource version for these UIDs, and an
-// error if one occurred.
-func (w *PodCollector) collectInitialPods(
-	clientset *kubernetes.Clientset,
-) ([]types.UID, string, error) {
-	timeOut := w.eh.options.KubeWatchTimeout
-	listOptions := metav1.ListOptions{
-		TimeoutSeconds: &timeOut,
-		Limit:          w.eh.options.KubeWatchMaxEvents,
-	}
-
-	blacklistUids := make([]types.UID, 0)
-	log.Info().Msg("Listing pods to get initial state ...")
-	var list *corev1.PodList
-	for list == nil || list.Continue != "" {
-		if list != nil {
-			log.Debug().Msgf("Initial list contains %d items ...", len(list.Items))
-			listOptions.Continue = list.Continue
-		}
-
-		log.Debug().Msgf("Listing from %+v ...", listOptions.Continue)
-		var err error
-		list, err =
-			clientset.CoreV1().Pods("").List(context.Background(), listOptions)
+// Run watches the Kubernetes Pods objects and reports them to the
+// StatisticEventHandler used to initialize the PodCollector. It is blocking and
+// should be run in another goroutine to the StatisticEventHandler and other
+// collectors.
+func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
+	for {
+		resyncUIDs, resourceVersion, err := w.collectInitialPods(clientset)
 		if err != nil {
-			log.Error().Err(err).Msg("Error performing initial sync.")
-
-			return nil, "", fmt.Errorf("could not perform initial pod sync: %w", err)
+			log.Panic().Err(err).Msg(
+				"Failed to resync after 410 Gone from kubernetes Watch API")
 		}
 
-		for _, pod := range list.Items {
-			blacklistUids = append(blacklistUids, pod.UID)
-		}
+		w.eh.resyncChan.Publish(resyncUIDs)
+		w.watch(clientset, resourceVersion)
+		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
+		prommetrics.PodCollectorRestarts.Inc()
 	}
-	log.Info().
-		Msgf("Initial sync completed, resource version %+v", list.ResourceVersion)
-
-	return blacklistUids, list.ResourceVersion, nil
-}
-
-type podAddedEvent struct {
-	collector *PodCollector
-	pod       *corev1.Pod
-	clientset *kubernetes.Clientset
-}
-
-func (ev *podAddedEvent) podUID() types.UID {
-	return ev.pod.UID
-}
-
-func (ev *podAddedEvent) handle(statistic *podStatistic) bool {
-	// As the PodAddedEvent may be called more than once, the initialization must
-	// only happen once.
-	if !statistic.initialized {
-		statistic.initialize(ev.pod)
-		statistic.imagePullCollector = newImagePullCollector(
-			ev.collector.eh,
-			ev.pod.Namespace,
-			ev.pod.UID,
-		)
-		go statistic.imagePullCollector.Run(ev.clientset)
-	}
-
-	statistic.update(ev.pod)
-
-	return false
-}
-
-type podModifiedEvent struct {
-	pod *corev1.Pod
-}
-
-func (ev *podModifiedEvent) podUID() types.UID {
-	return ev.pod.UID
-}
-
-func (ev *podModifiedEvent) handle(statistic *podStatistic) bool {
-	statistic.update(ev.pod)
-
-	return false
-}
-
-type podDeletedEvent struct {
-	uid types.UID
-}
-
-func (ev *podDeletedEvent) podUID() types.UID {
-	return ev.uid
-}
-
-func (ev *podDeletedEvent) handle(statistic *podStatistic) bool {
-	go statistic.imagePullCollector.cancel("pod_deleted")
-
-	return true
 }
 
 func (w *PodCollector) handlePod(
@@ -233,21 +153,101 @@ func (w *PodCollector) watch(
 	}
 }
 
-// Run watches the Kubernetes Pods objects and reports them to the
-// StatisticEventHandler used to initialize the PodCollector. It is blocking and
-// should be run in another goroutine to the StatisticEventHandler and other
-// collectors.
-func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
-	for {
-		resyncUIDs, resourceVersion, err := w.collectInitialPods(clientset)
-		if err != nil {
-			log.Panic().Err(err).Msg(
-				"Failed to resync after 410 Gone from kubernetes Watch API")
+// collectInitialPods generates a list of Pod UIDs currently existing on the
+// cluster. This is used to filter pre-existing Pods by the
+// StatisticEventHandler to avoid generating inaccurate or incomplete metrics.
+// It returns the list of Pod UIDs, the resource version for these UIDs, and an
+// error if one occurred.
+func (w *PodCollector) collectInitialPods(
+	clientset *kubernetes.Clientset,
+) ([]types.UID, string, error) {
+	timeOut := w.eh.options.KubeWatchTimeout
+	listOptions := metav1.ListOptions{
+		TimeoutSeconds: &timeOut,
+		Limit:          w.eh.options.KubeWatchMaxEvents,
+	}
+
+	blacklistUids := make([]types.UID, 0)
+	log.Info().Msg("Listing pods to get initial state ...")
+	var list *corev1.PodList
+	for list == nil || list.Continue != "" {
+		if list != nil {
+			log.Debug().Msgf("Initial list contains %d items ...", len(list.Items))
+			listOptions.Continue = list.Continue
 		}
 
-		w.eh.resyncChan.Publish(resyncUIDs)
-		w.watch(clientset, resourceVersion)
-		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
-		prommetrics.PodCollectorRestarts.Inc()
+		log.Debug().Msgf("Listing from %+v ...", listOptions.Continue)
+		var err error
+		list, err =
+			clientset.CoreV1().Pods("").List(context.Background(), listOptions)
+		if err != nil {
+			log.Error().Err(err).Msg("Error performing initial sync.")
+
+			return nil, "", fmt.Errorf("could not perform initial pod sync: %w", err)
+		}
+
+		for _, pod := range list.Items {
+			blacklistUids = append(blacklistUids, pod.UID)
+		}
 	}
+	log.Info().
+		Msgf("Initial sync completed, resource version %+v", list.ResourceVersion)
+
+	return blacklistUids, list.ResourceVersion, nil
+}
+
+type podAddedEvent struct {
+	collector *PodCollector
+	pod       *corev1.Pod
+	clientset *kubernetes.Clientset
+}
+
+func (ev *podAddedEvent) podUID() types.UID {
+	return ev.pod.UID
+}
+
+func (ev *podAddedEvent) handle(statistic *podStatistic) bool {
+	// As the PodAddedEvent may be called more than once, the initialization must
+	// only happen once.
+	if !statistic.initialized {
+		statistic.initialize(ev.pod)
+		statistic.imagePullCollector = newImagePullCollector(
+			ev.collector.eh,
+			ev.pod.Namespace,
+			ev.pod.UID,
+		)
+		go statistic.imagePullCollector.Run(ev.clientset)
+	}
+
+	statistic.update(ev.pod)
+
+	return false
+}
+
+type podModifiedEvent struct {
+	pod *corev1.Pod
+}
+
+func (ev *podModifiedEvent) podUID() types.UID {
+	return ev.pod.UID
+}
+
+func (ev *podModifiedEvent) handle(statistic *podStatistic) bool {
+	statistic.update(ev.pod)
+
+	return false
+}
+
+type podDeletedEvent struct {
+	uid types.UID
+}
+
+func (ev *podDeletedEvent) podUID() types.UID {
+	return ev.uid
+}
+
+func (ev *podDeletedEvent) handle(statistic *podStatistic) bool {
+	go statistic.imagePullCollector.cancel("pod_deleted")
+
+	return true
 }

@@ -41,6 +41,28 @@ func (eh *StatisticEventHandler) Publish(ev statisticEvent) {
 	eh.eventChan.Publish(ev)
 }
 
+// Run launches the statistic event handling loop. It is blocking and should be
+// run in another goroutine to each of the collectors. It provides synchronous
+// and ordered execution of statistic events.
+func (eh *StatisticEventHandler) Run() {
+	for {
+		select {
+		case event, ok := <-eh.eventChan.Channel():
+			if !ok {
+				break
+			}
+
+			eh.handleEvent(event)
+		case resyncUIDs, ok := <-eh.resyncChan.Channel():
+			if !ok {
+				break
+			}
+
+			eh.handleResync(resyncUIDs)
+		}
+	}
+}
+
 func (eh *StatisticEventHandler) isBlacklisted(uid types.UID) bool {
 	for _, blacklistedUID := range eh.blacklistUIDs {
 		if blacklistedUID == uid {
@@ -92,28 +114,6 @@ func (eh *StatisticEventHandler) handleResync(resyncUIDs []types.UID) {
 	for _, uid := range resyncUIDs {
 		if _, ok := eh.statistics[uid]; !ok {
 			eh.blacklistUIDs = append(eh.blacklistUIDs, uid)
-		}
-	}
-}
-
-// Run launches the statistic event handling loop. It is blocking and should be
-// run in another goroutine to each of the collectors. It provides synchronous
-// and ordered execution of statistic events.
-func (eh *StatisticEventHandler) Run() {
-	for {
-		select {
-		case event, ok := <-eh.eventChan.Channel():
-			if !ok {
-				break
-			}
-
-			eh.handleEvent(event)
-		case resyncUIDs, ok := <-eh.resyncChan.Channel():
-			if !ok {
-				break
-			}
-
-			eh.handleResync(resyncUIDs)
 		}
 	}
 }
