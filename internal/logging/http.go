@@ -45,14 +45,6 @@ func NewHTTPHandler(handler http.Handler) *HTTPHandler {
 	return &HTTPHandler{handler: handler}
 }
 
-func (c *HTTPHandler) logger() *zerolog.Logger {
-	logger := log.With().
-		Str("subsystem", "http").
-		Logger()
-
-	return &logger
-}
-
 func (c *HTTPHandler) ServeHTTP(
 	writer http.ResponseWriter,
 	req *http.Request,
@@ -92,4 +84,12 @@ func (c *HTTPHandler) ServeHTTP(
 			req.Referer(),
 			req.UserAgent(),
 		)
+}
+
+func (c *HTTPHandler) logger() *zerolog.Logger {
+	logger := log.With().
+		Str("subsystem", "http").
+		Logger()
+
+	return &logger
 }

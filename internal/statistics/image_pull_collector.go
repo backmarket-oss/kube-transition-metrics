@@ -42,6 +42,152 @@ func newImagePullCollector(
 	}
 }
 
+func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
+	logger := c.logger()
+
+	logger.Debug().Msg("Started ImagePullCollector ...")
+	prommetrics.ImagePullCollectorRoutines.Inc()
+	defer func() {
+		logger.Debug().Msg("Stopped ImagePullCollector.")
+		prommetrics.ImagePullCollectorRoutines.Dec()
+	}()
+
+	for {
+		if c.watch(clientset) {
+			return
+		}
+
+		logger.Warn().Msg("Watch ended, restarting. Some events may be lost.")
+		prommetrics.ImagePullCollectorRestarts.Inc()
+	}
+}
+
+func (c imagePullCollector) handleEvent(
+	eventType watch.EventType,
+	event *corev1.Event,
+) statisticEvent {
+	logger := c.logger()
+
+	if eventType != watch.Added {
+		logger.Debug().Msgf("Ignoring non-Added event: %+v", eventType)
+
+		return nil
+	}
+
+	switch event.Reason {
+	case "Pulling", "Pulled":
+		fieldPath := event.InvolvedObject.FieldPath
+		initContainer, containerName := c.parseContainerName(fieldPath)
+
+		if containerName == "" {
+			return nil
+		}
+		switch event.Reason {
+		case "Pulling":
+			return &imagePullingEvent{
+				initContainer: initContainer,
+				containerName: containerName,
+				event:         event,
+				collector:     &c,
+			}
+		case "Pulled":
+			return &imagePulledEvent{
+				initContainer: initContainer,
+				containerName: containerName,
+				event:         event,
+				collector:     &c,
+			}
+		}
+	default:
+		logger.Debug().Msgf("Ignoring non-ImagePull event: %+v", event.Reason)
+	}
+
+	return nil
+}
+
+func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
+	logger := c.logger()
+
+	var event *corev1.Event
+	var isEvent bool
+	if watchEvent.Type == watch.Error {
+		logger.Error().Msgf("Watch event error: %+v", watchEvent)
+		prommetrics.ImagePullCollectorErrors.Inc()
+
+		return true
+	} else if event, isEvent = watchEvent.Object.(*corev1.Event); !isEvent {
+		logger.Panic().Msgf("Watch event is not an Event: %+v", watchEvent)
+	} else if statisticEvent :=
+		c.handleEvent(watchEvent.Type, event); statisticEvent != nil {
+		logger.Debug().Msgf(
+			"Publish event: %s", reflect.TypeOf(statisticEvent).String(),
+		)
+		c.eh.Publish(statisticEvent)
+	}
+
+	return false
+}
+
+func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
+	logger := c.logger()
+
+	// TODO: use a ("k8s.io/client-go/tools/watch").RetryWatcher to allow fetching
+	// existing events.
+	watchOpts := c.watchOptions()
+	watcher, err :=
+		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watchOpts)
+	if err != nil {
+		watchOptsJSON, marshalErr := json.Marshal(watchOpts)
+		if marshalErr != nil {
+			watchOptsJSON = []byte("null")
+		}
+
+		logger.Panic().
+			Str("watch_namespace", c.namespace).
+			RawJSON("watch_opts", watchOptsJSON).
+			AnErr("watch_opts_marshal_err", marshalErr).
+			Err(err).Msg("Error starting watcher.")
+	}
+	defer watcher.Stop()
+
+	for {
+		select {
+		case reason := <-c.cancelChan:
+			logger.Debug().Msgf("Received cancel event: %s", reason)
+
+			return true
+		case watchEvent, watcherOpen := <-watcher.ResultChan():
+			if !watcherOpen {
+				return false
+			}
+
+			shouldBreak := c.handleWatchEvent(watchEvent)
+			prommetrics.EventsProcessed.
+				With(prometheus.Labels{"event_type": string(watchEvent.Type)}).
+				Inc()
+			if shouldBreak {
+				return false
+			}
+		}
+	}
+}
+
+func (c imagePullCollector) watchOptions() metav1.ListOptions {
+	timeOut := c.eh.options.KubeWatchTimeout
+	watchOps := metav1.ListOptions{
+		TimeoutSeconds: &timeOut,
+		Watch:          true,
+		Limit:          c.eh.options.KubeWatchMaxEvents,
+		FieldSelector: fields.Set(
+			map[string]string{
+				"involvedObject.uid": string(c.podUID),
+			},
+		).AsSelector().String(),
+	}
+
+	return watchOps
+}
+
 // Should be run in goroutine to avoid blocking.
 func (c imagePullCollector) cancel(reason string) {
 	logger := c.logger()
@@ -205,149 +351,4 @@ func (ev imagePulledEvent) handle(statistic *podStatistic) bool {
 	imagePullStatistic.log(ev.event.Message)
 
 	return false
-}
-
-func (c imagePullCollector) handleEvent(
-	eventType watch.EventType,
-	event *corev1.Event,
-) statisticEvent {
-	logger := c.logger()
-
-	if eventType != watch.Added {
-		logger.Debug().Msgf("Ignoring non-Added event: %+v", eventType)
-
-		return nil
-	}
-
-	switch event.Reason {
-	case "Pulling", "Pulled":
-		fieldPath := event.InvolvedObject.FieldPath
-		initContainer, containerName := c.parseContainerName(fieldPath)
-
-		if containerName == "" {
-			return nil
-		}
-		if event.Reason == "Pulling" {
-			return &imagePullingEvent{
-				initContainer: initContainer,
-				containerName: containerName,
-				event:         event,
-				collector:     &c,
-			}
-		} else if event.Reason == "Pulled" {
-			return &imagePulledEvent{
-				initContainer: initContainer,
-				containerName: containerName,
-				event:         event,
-				collector:     &c,
-			}
-		}
-	default:
-		logger.Debug().Msgf("Ignoring non-ImagePull event: %+v", event.Reason)
-	}
-
-	return nil
-}
-
-func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
-	logger := c.logger()
-
-	var event *corev1.Event
-	var isEvent bool
-	if watchEvent.Type == watch.Error {
-		logger.Error().Msgf("Watch event error: %+v", watchEvent)
-		prommetrics.ImagePullCollectorErrors.Inc()
-
-		return true
-	} else if event, isEvent = watchEvent.Object.(*corev1.Event); !isEvent {
-		logger.Panic().Msgf("Watch event is not an Event: %+v", watchEvent)
-	} else if statisticEvent :=
-		c.handleEvent(watchEvent.Type, event); statisticEvent != nil {
-		logger.Debug().Msgf(
-			"Publish event: %s", reflect.TypeOf(statisticEvent).String(),
-		)
-		c.eh.Publish(statisticEvent)
-	}
-
-	return false
-}
-
-func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
-	logger := c.logger()
-
-	// TODO: use a ("k8s.io/client-go/tools/watch").RetryWatcher to allow fetching
-	// existing events.
-	watchOpts := c.watchOptions()
-	watcher, err :=
-		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watchOpts)
-	if err != nil {
-		watchOptsJSON, marshalErr := json.Marshal(watchOpts)
-		if marshalErr != nil {
-			watchOptsJSON = []byte("null")
-		}
-
-		logger.Panic().
-			Str("watch_namespace", c.namespace).
-			RawJSON("watch_opts", watchOptsJSON).
-			AnErr("watch_opts_marshal_err", marshalErr).
-			Err(err).Msg("Error starting watcher.")
-	}
-	defer watcher.Stop()
-
-	for {
-		select {
-		case reason := <-c.cancelChan:
-			logger.Debug().Msgf("Received cancel event: %s", reason)
-
-			return true
-		case watchEvent, watcherOpen := <-watcher.ResultChan():
-			if !watcherOpen {
-				return false
-			}
-
-			shouldBreak := c.handleWatchEvent(watchEvent)
-			prommetrics.EventsProcessed.
-				With(prometheus.Labels{"event_type": string(watchEvent.Type)}).
-				Inc()
-			if shouldBreak {
-				return false
-			}
-		}
-	}
-}
-
-func (c imagePullCollector) watchOptions() metav1.ListOptions {
-	timeOut := c.eh.options.KubeWatchTimeout
-	watchOps := metav1.ListOptions{
-		TimeoutSeconds: &timeOut,
-		Watch:          true,
-		Limit:          c.eh.options.KubeWatchMaxEvents,
-		FieldSelector: fields.Set(
-			map[string]string{
-				"involvedObject.uid": string(c.podUID),
-			},
-		).AsSelector().String(),
-	}
-
-	return watchOps
-}
-
-func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
-	logger := c.logger()
-
-	logger.Debug().Msg("Started ImagePullCollector ...")
-	prommetrics.ImagePullCollectorRoutines.Inc()
-	defer func() {
-		logger.Debug().Msg("Stopped ImagePullCollector.")
-		prommetrics.ImagePullCollectorRoutines.Dec()
-	}()
-
-	for {
-		if c.watch(clientset) {
-			return
-		}
-
-		logger.Warn().Msg("Watch ended, restarting. Some events may be lost.")
-		prommetrics.ImagePullCollectorRestarts.Inc()
-	}
 }

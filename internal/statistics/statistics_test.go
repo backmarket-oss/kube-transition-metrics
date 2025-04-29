@@ -193,7 +193,7 @@ func TestPodStatisticUpdate(t *testing.T) {
 	stat := initializePodStatistic(pod)
 
 	stubImagePullCollector(&stat.imagePullCollector)
-	stat.timeSource = MockTimeSource{pod.CreationTimestamp.Time.Add(3 * time.Second)}
+	stat.timeSource = MockTimeSource{pod.CreationTimestamp.Add(3 * time.Second)}
 
 	// Update the pod statistic for the "new" state
 	stat.update(pod)

@@ -28,7 +28,7 @@ jobs:
 
       - uses: pre-commit/action@v3.0.1
         env:
-          # The official golangci-lint action runs golangci-lint instead
-          SKIP: golangci-lint
+          # The official golangci-lint action runs config verification and linter, but does not run the formatter.
+          SKIP: golangci-lint-config-verify,golangci-lint-full
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
