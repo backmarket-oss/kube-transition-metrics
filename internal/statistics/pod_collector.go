@@ -179,11 +179,9 @@ func (w *PodCollector) getWatcher(
 ) (*watch_tools.RetryWatcher, error) {
 	watcher, err := watch_tools.NewRetryWatcher(resourceVersion, &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			//nolint:wrapcheck
 			return clientset.CoreV1().Pods("").List(context.Background(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			//nolint:wrapcheck
 			return clientset.CoreV1().Pods("").Watch(context.Background(), options)
 		},
 	})

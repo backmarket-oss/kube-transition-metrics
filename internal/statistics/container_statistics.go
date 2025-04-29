@@ -44,25 +44,25 @@ func newContainerStatistic(
 	return containerStatistic
 }
 
-func (cs containerStatistic) logger() zerolog.Logger {
+func (cs *containerStatistic) logger() zerolog.Logger {
 	return cs.pod.logger().With().
 		Str("container_name", cs.name).
 		Logger()
 }
 
-func (cs containerStatistic) appendInitFields(event *zerolog.Event) {
+func (cs *containerStatistic) appendInitFields(event *zerolog.Event) {
 	if !cs.runningTimestamp.IsZero() && cs.previous != nil && !cs.previous.readyTimestamp.IsZero() {
 		event.Dur("previous_to_running_seconds", cs.runningTimestamp.Sub(cs.previous.readyTimestamp))
 	}
 }
 
-func (cs containerStatistic) appendNonInitFields(event *zerolog.Event) {
+func (cs *containerStatistic) appendNonInitFields(event *zerolog.Event) {
 	if !cs.runningTimestamp.IsZero() && !cs.pod.scheduledTimestamp.IsZero() {
 		event.Dur("initialized_to_running_seconds", cs.runningTimestamp.Sub(cs.pod.scheduledTimestamp))
 	}
 }
 
-func (cs containerStatistic) event() *zerolog.Event {
+func (cs *containerStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
 	event.Str("name", cs.name)
@@ -103,7 +103,7 @@ func (cs containerStatistic) event() *zerolog.Event {
 	return event
 }
 
-func (cs containerStatistic) report() {
+func (cs *containerStatistic) report() {
 	metrics := zerolog.Dict()
 	metrics.Str("type", "container")
 	metrics.Str("kube_namespace", cs.pod.namespace)
@@ -116,7 +116,7 @@ func (cs containerStatistic) report() {
 	eventLogger.Log().Msg("")
 }
 
-func (cs containerStatistic) logContainerStatus(status corev1.ContainerStatus) {
+func (cs *containerStatistic) logContainerStatus(status corev1.ContainerStatus) {
 	logger := cs.logger()
 
 	switch {

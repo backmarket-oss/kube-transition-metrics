@@ -57,14 +57,14 @@ func (s *podStatistic) initialize(pod *corev1.Pod) {
 	}
 }
 
-func (s podStatistic) logger() zerolog.Logger {
+func (s *podStatistic) logger() zerolog.Logger {
 	return log.With().
 		Str("kube_namespace", s.namespace).
 		Str("pod_name", s.name).
 		Logger()
 }
 
-func (s podStatistic) event() *zerolog.Event {
+func (s *podStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
 	event.Time("creation_timestamp", s.creationTimestamp)
@@ -90,7 +90,7 @@ func (s podStatistic) event() *zerolog.Event {
 	return event
 }
 
-func (s podStatistic) report() {
+func (s *podStatistic) report() {
 	metrics := zerolog.Dict()
 	metrics.Str("type", "pod")
 	metrics.Str("kube_namespace", s.namespace)

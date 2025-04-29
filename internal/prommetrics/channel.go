@@ -10,6 +10,7 @@ import (
 
 //nolint:gochecknoglobals
 var (
+	// MonitoredChannelPublishWaitDuration tracks the time spent waiting to publish an item to the channel.
 	MonitoredChannelPublishWaitDuration = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "channel_publish_wait_total",
@@ -17,6 +18,7 @@ var (
 		},
 		[]string{"channel_name"},
 	)
+	// MonitoredChannelQueueDepth tracks the current queue depth of the channel.
 	MonitoredChannelQueueDepth = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "channel_queue_depth",
@@ -24,6 +26,7 @@ var (
 		},
 		[]string{"channel_name"},
 	)
+	// ChannelMonitors tracks the number of channel monitor goroutines.
 	ChannelMonitors = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "channel_monitors",
