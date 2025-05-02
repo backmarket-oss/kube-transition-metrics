@@ -94,15 +94,16 @@ func (w *PodCollector) handlePod(
 }
 
 func (w *PodCollector) getWatcher(
+	ctx context.Context,
 	clientset *kubernetes.Clientset,
 	resourceVersion string,
 ) (*watch_tools.RetryWatcher, error) {
-	watcher, err := watch_tools.NewRetryWatcher(resourceVersion, &cache.ListWatch{
+	watcher, err := watch_tools.NewRetryWatcherWithContext(ctx, resourceVersion, &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return clientset.CoreV1().Pods("").List(context.Background(), options)
+			return clientset.CoreV1().Pods("").List(ctx, options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return clientset.CoreV1().Pods("").Watch(context.Background(), options)
+			return clientset.CoreV1().Pods("").Watch(ctx, options)
 		},
 	})
 	if err != nil {
@@ -116,7 +117,10 @@ func (w *PodCollector) watch(
 	clientset *kubernetes.Clientset,
 	resourceVersion string,
 ) {
-	watcher, err := w.getWatcher(clientset, resourceVersion)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	watcher, err := w.getWatcher(ctx, clientset, resourceVersion)
 	if err != nil {
 		log.Panic().Err(err).Msg("Error starting watcher.")
 	}
