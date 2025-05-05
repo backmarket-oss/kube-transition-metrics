@@ -25,8 +25,17 @@ import (
 // and send statistic events to the StatisticEventHandler to track created,
 // modified, and deleted Pods during their lifecycles.
 type PodCollector struct {
-	statisticEventLoop  *StatisticEventLoop
-	options             *options.Options
+	// options are the options used to configure the PodCollector.
+	options *options.Options
+
+	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod and image pull
+	// statistic states.
+	statisticEventLoop *StatisticEventLoop
+
+	// imagePullCollectors is a map of [*imagePullCollector] instances for each Pod [types.UID].
+	// Keys are [types.UID] and values are [*imagePullCollector].
+	// Moving the imagePullCollectors to an event loop to avoid having to handle concurrent access would simplify the code
+	// and make it easier to reason about.
 	imagePullCollectors *sync.Map
 }
 

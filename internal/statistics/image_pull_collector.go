@@ -22,11 +22,19 @@ import (
 //
 // TODO(Izzette): Use a context.Context to handle cancellation instead of the image pull collector.
 type imagePullCollector struct {
-	options            *options.Options
-	canceled           *atomic.Bool
-	cancelChan         chan string
+	// options are the options used to configure the imagePullCollector.
+	options *options.Options
+
+	// canceled is an atomic boolean that indicates whether the collector has been canceled.
+	canceled *atomic.Bool
+	// cancelChan is a channel used to signal cancellation of the collector.
+	cancelChan chan string
+
+	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod and image pull
 	statisticEventLoop *StatisticEventLoop
-	pod                *corev1.Pod
+
+	// pod is the Kubernetes pod for which image pull events are being collected.
+	pod *corev1.Pod
 }
 
 // newImagePullCollector creates (but does not start) a new imagePullCollector instance.
