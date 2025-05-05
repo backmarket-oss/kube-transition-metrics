@@ -8,6 +8,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// metricOutput is the default output writer for metrics.
+//
 //nolint:gochecknoglobals
 var metricOutput io.Writer = zerolog.MultiLevelWriter(
 	os.Stdout,
