@@ -121,9 +121,9 @@ func (el *StatisticEventLoop) PodResync(
 	})
 }
 
-// ImagePull sends an event to update the image pull statistic for a pod from the latest Kubernetes Event for image
-// pulling related events.
-func (el *StatisticEventLoop) ImagePull(
+// ImagePullUpdate sends an event to update the image pull statistic for a pod from the latest Kubernetes Event for
+// image pulling related events.
+func (el *StatisticEventLoop) ImagePullUpdate(
 	ctx context.Context,
 	pod *corev1.Pod,
 	k8sEvent *corev1.Event,
@@ -132,6 +132,17 @@ func (el *StatisticEventLoop) ImagePull(
 		pod:      pod,
 		k8sEvent: k8sEvent,
 		output:   metricOutput,
+	})
+}
+
+// ImagePullDelete sends an event to delete the image pull statistic for a pod after the image pull is no longer being
+// tracked.
+func (el *StatisticEventLoop) ImagePullDelete(
+	ctx context.Context,
+	podUID types.UID,
+) (safeconcurrencytypes.GenerationID, error) {
+	return el.Send(ctx, &deleteImagePullEvent{
+		podUID: podUID,
 	})
 }
 
@@ -328,14 +339,14 @@ func (e *imagePullUpdateEvent) logWith(ev *zerolog.Event) *zerolog.Event {
 		Str("pod_name", e.pod.Name)
 }
 
-// DeleteImagePullEvent is used to delete the image pull statistic for a pod after it has been deleted from the
+// deleteImagePullEvent is used to delete the image pull statistic for a pod after it has been deleted from the
 // Kubernetes API.
-type DeleteImagePullEvent struct {
+type deleteImagePullEvent struct {
 	podUID types.UID
 }
 
 // Dispatch implements [safeconcurrencytypes.Event.Dispatch].
-func (e *DeleteImagePullEvent) Dispatch(_ safeconcurrencytypes.GenerationID, statisticState *state.State) *state.State {
+func (e *deleteImagePullEvent) Dispatch(_ safeconcurrencytypes.GenerationID, statisticState *state.State) *state.State {
 	return statisticState.DeleteImagePullStatistic(e.podUID)
 }
 

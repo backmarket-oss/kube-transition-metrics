@@ -34,8 +34,8 @@ func newImagePullCollector(
 	options *options.Options,
 	eventHandler *StatisticEventLoop,
 	pod *corev1.Pod,
-) imagePullCollector {
-	return imagePullCollector{
+) *imagePullCollector {
+	return &imagePullCollector{
 		options:            options,
 		canceled:           &atomic.Bool{},
 		cancelChan:         make(chan string),
@@ -46,7 +46,7 @@ func newImagePullCollector(
 
 // Run starts the imagePullCollector and begins watching for image pull events.
 // It does not start a new goroutine and will block until the image pull is complete or the collector is canceled.
-func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
+func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	logger := c.logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
@@ -67,7 +67,7 @@ func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
 }
 
 // handleWatchEvent processes a watch event and returns true if the watch should be stopped.
-func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
+func (c *imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 	logger := c.logger()
 
 	var event *corev1.Event
@@ -87,7 +87,7 @@ func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 }
 
 // handleEvent handles a Kubernetes event and publishes it to the statistic event loop if it is an image pull event.
-func (c imagePullCollector) handleEvent(
+func (c *imagePullCollector) handleEvent(
 	eventType watch.EventType,
 	event *corev1.Event,
 ) {
@@ -101,7 +101,7 @@ func (c imagePullCollector) handleEvent(
 
 	switch event.Reason {
 	case "Pulling", "Pulled":
-		if _, err := c.statisticEventLoop.ImagePull(context.TODO(), c.pod, event); err != nil {
+		if _, err := c.statisticEventLoop.ImagePullUpdate(context.TODO(), c.pod, event); err != nil {
 			logger.Error().Err(err).Any("event", event).Msg("Error publishing ImagePull event")
 		}
 	default:
@@ -110,7 +110,7 @@ func (c imagePullCollector) handleEvent(
 }
 
 // watch performs a watch on the Kubernetes API for image pull events related to the pod.
-func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
+func (c *imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	logger := c.logger()
 
 	// TODO: use a ("k8s.io/client-go/tools/watch").RetryWatcher to allow fetching
@@ -155,7 +155,7 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 }
 
 // watchOptions builds the list options for the watch request.
-func (c imagePullCollector) watchOptions() metav1.ListOptions {
+func (c *imagePullCollector) watchOptions() metav1.ListOptions {
 	timeOut := c.options.KubeWatchTimeout
 	watchOps := metav1.ListOptions{
 		TimeoutSeconds: &timeOut,
@@ -173,7 +173,7 @@ func (c imagePullCollector) watchOptions() metav1.ListOptions {
 
 // cancel cancels the image pull collector.
 // Should be run in goroutine to avoid blocking.
-func (c imagePullCollector) cancel(reason string) {
+func (c *imagePullCollector) cancel(reason string) {
 	logger := c.logger()
 
 	// Sleep for a bit to allow any pending events to flush.
@@ -193,7 +193,7 @@ func (c imagePullCollector) cancel(reason string) {
 // logger returns a logger scoped to the image pull collector.
 //
 // TODO(Izzette): Use a context.Context to propagate the logger fields.
-func (c imagePullCollector) logger() *zerolog.Logger {
+func (c *imagePullCollector) logger() *zerolog.Logger {
 	logger := log.With().
 		Str("subsystem", "image_pull_collector").
 		Str("kube_namespace", c.pod.Namespace).

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
@@ -26,7 +27,7 @@ import (
 type PodCollector struct {
 	statisticEventLoop  *StatisticEventLoop
 	options             *options.Options
-	imagePullCollectors map[types.UID]imagePullCollector
+	imagePullCollectors *sync.Map
 }
 
 // NewPodCollector creates a new PodCollector object using the provided
@@ -38,7 +39,7 @@ func NewPodCollector(
 	return &PodCollector{
 		options:             options,
 		statisticEventLoop:  eh,
-		imagePullCollectors: make(map[types.UID]imagePullCollector),
+		imagePullCollectors: &sync.Map{},
 	}
 }
 
@@ -63,12 +64,20 @@ func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
 			resyncUIDSet[uid] = struct{}{}
 		}
 
-		for uid := range w.imagePullCollectors {
+		w.imagePullCollectors.Range(func(key, _ any) bool {
+			// We are the only ones using the map, so we can safely cast to types.UID.
+			uid, isUID := key.(types.UID)
+			if !isUID {
+				log.Panic().Any("key", key).Msgf("Non-UID key found in imagePullCollectors map")
+			}
+
 			if _, ok := resyncUIDSet[uid]; !ok {
 				// Cancel image pull collectors containers who deletion even was missed
 				w.cancelImagePullCollector(uid, "pod deleting event missed")
 			}
-		}
+
+			return true
+		})
 
 		w.watch(clientset, resourceVersion)
 		log.Warn().Msg("Watch ended, restarting. Some events may be lost.")
@@ -95,14 +104,7 @@ func (w *PodCollector) handlePod(
 	//nolint:exhaustive
 	switch eventType {
 	case watch.Added:
-		imagePullCollector := newImagePullCollector(w.options, w.statisticEventLoop, pod)
-		// Cancel any image pull collectors before removing them from the map
-		w.cancelImagePullCollector(pod.UID, "pod replaced")
-		w.imagePullCollectors[pod.UID] = imagePullCollector
-		go func() {
-			imagePullCollector.Run(clientset)
-			delete(w.imagePullCollectors, pod.UID)
-		}()
+		w.addImagePullCollector(clientset, pod)
 
 		fallthrough
 	case watch.Modified:
@@ -124,11 +126,36 @@ func (w *PodCollector) handlePod(
 	}
 }
 
+// addImagePullCollector adds a new image pull collector for the given pod UID.
+// If an image pull collector already exists for the given UID, it is replaced and the old one is cancelled.
+func (w *PodCollector) addImagePullCollector(
+	clientset *kubernetes.Clientset,
+	pod *corev1.Pod,
+) {
+	collector := newImagePullCollector(w.options, w.statisticEventLoop, pod)
+	// Cancel any image pull collectors before removing them from the map
+	if existing, ok := w.imagePullCollectors.Swap(pod.UID, collector); ok {
+		existingCollector, isCollector := existing.(*imagePullCollector)
+		if !isCollector {
+			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
+		}
+		go existingCollector.cancel("pod replaced")
+	}
+	go func() {
+		collector.Run(clientset)
+		// Delete the collector from the map if it is the same as the one that finished running
+		w.imagePullCollectors.CompareAndDelete(pod.UID, collector)
+	}()
+}
+
 // cancelImagePullCollector cancels and removes the image pull collector for the given pod UID.
 func (w *PodCollector) cancelImagePullCollector(uid types.UID, reason string) {
-	if collector, ok := w.imagePullCollectors[uid]; ok {
+	if existing, ok := w.imagePullCollectors.LoadAndDelete(uid); ok {
+		collector, ok := existing.(*imagePullCollector)
+		if !ok {
+			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
+		}
 		go collector.cancel(reason)
-		delete(w.imagePullCollectors, uid)
 	}
 }
 
