@@ -19,10 +19,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Log in to the Container registry
-        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -35,10 +35,10 @@ jobs:
           check-latest: true
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: ~> v2
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
