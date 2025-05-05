@@ -60,6 +60,10 @@ func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	logger.Debug().Msg("Started ImagePullCollector ...")
 	prommetrics.ImagePullCollectorRoutines.Inc()
 	defer func() {
+		_, err := c.statisticEventLoop.ImagePullDelete(context.TODO(), c.pod.UID)
+		if err != nil {
+			logger.Error().Err(err).Msg("Error cleaning up image pull statistic")
+		}
 		logger.Debug().Msg("Stopped ImagePullCollector.")
 		prommetrics.ImagePullCollectorRoutines.Dec()
 	}()
