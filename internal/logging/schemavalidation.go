@@ -21,7 +21,7 @@ var schemaFiles embed.FS
 // It discards the data after validation.
 func NewValidationWriter() io.Writer {
 	compiler := jsonschema.NewCompiler()
-	//nolint: wrapcheck
+	//nolint:wrapcheck
 	err := fs.WalkDir(schemaFiles, ".", func(path string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			log.Panic().Str("path", path).Err(err).Msg("Failed to walk schemas")

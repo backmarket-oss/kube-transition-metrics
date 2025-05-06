@@ -72,11 +72,11 @@ func main() {
 		log.Panic().Err(err).Msg("Failed to build kubernetes client")
 	}
 
-	eventHandler := statistics.NewStatisticEventHandler(options)
+	eventHandler := statistics.NewStatisticEventLoop(options)
+	defer eventHandler.Close()
+	eventHandler.Start()
 
-	go eventHandler.Run()
-
-	podCollector := statistics.NewPodCollector(eventHandler)
+	podCollector := statistics.NewPodCollector(options, eventHandler)
 	go podCollector.Run(clientset)
 
 	http.Handle("/metrics", promhttp.Handler())

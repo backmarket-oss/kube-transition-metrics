@@ -2,11 +2,10 @@ package statistics
 
 import (
 	"context"
-	"reflect"
-	"regexp"
 	"sync/atomic"
 	"time"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
@@ -14,40 +13,57 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
 
+// imagePullCollector is a collector that watches for image pull events in a Kubernetes pod.
+//
+// TODO(Izzette): Use a context.Context to handle cancellation instead of the image pull collector.
 type imagePullCollector struct {
-	canceled   *atomic.Bool
+	// options are the options used to configure the imagePullCollector.
+	options *options.Options
+
+	// canceled is an atomic boolean that indicates whether the collector has been canceled.
+	canceled *atomic.Bool
+	// cancelChan is a channel used to signal cancellation of the collector.
 	cancelChan chan string
-	eh         *StatisticEventHandler
-	namespace  string
-	podUID     types.UID
+
+	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod and image pull
+	statisticEventLoop *StatisticEventLoop
+
+	// pod is the Kubernetes pod for which image pull events are being collected.
+	pod *corev1.Pod
 }
 
+// newImagePullCollector creates (but does not start) a new imagePullCollector instance.
 func newImagePullCollector(
-	eventHandler *StatisticEventHandler,
-	namespace string,
-	podUID types.UID,
-) imagePullCollector {
-	return imagePullCollector{
-		canceled:   &atomic.Bool{},
-		cancelChan: make(chan string),
-		eh:         eventHandler,
-		namespace:  namespace,
-		podUID:     podUID,
+	options *options.Options,
+	eventHandler *StatisticEventLoop,
+	pod *corev1.Pod,
+) *imagePullCollector {
+	return &imagePullCollector{
+		options:            options,
+		canceled:           &atomic.Bool{},
+		cancelChan:         make(chan string),
+		statisticEventLoop: eventHandler,
+		pod:                pod,
 	}
 }
 
-func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
+// Run starts the imagePullCollector and begins watching for image pull events.
+// It does not start a new goroutine and will block until the image pull is complete or the collector is canceled.
+func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	logger := c.logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
 	prommetrics.ImagePullCollectorRoutines.Inc()
 	defer func() {
+		_, err := c.statisticEventLoop.ImagePullDelete(context.TODO(), c.pod.UID)
+		if err != nil {
+			logger.Error().Err(err).Msg("Error cleaning up image pull statistic")
+		}
 		logger.Debug().Msg("Stopped ImagePullCollector.")
 		prommetrics.ImagePullCollectorRoutines.Dec()
 	}()
@@ -62,50 +78,8 @@ func (c imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	}
 }
 
-func (c imagePullCollector) handleEvent(
-	eventType watch.EventType,
-	event *corev1.Event,
-) statisticEvent {
-	logger := c.logger()
-
-	if eventType != watch.Added {
-		logger.Debug().Msgf("Ignoring non-Added event: %+v", eventType)
-
-		return nil
-	}
-
-	switch event.Reason {
-	case "Pulling", "Pulled":
-		fieldPath := event.InvolvedObject.FieldPath
-		initContainer, containerName := c.parseContainerName(fieldPath)
-
-		if containerName == "" {
-			return nil
-		}
-		switch event.Reason {
-		case "Pulling":
-			return &imagePullingEvent{
-				initContainer: initContainer,
-				containerName: containerName,
-				event:         event,
-				collector:     &c,
-			}
-		case "Pulled":
-			return &imagePulledEvent{
-				initContainer: initContainer,
-				containerName: containerName,
-				event:         event,
-				collector:     &c,
-			}
-		}
-	default:
-		logger.Debug().Msgf("Ignoring non-ImagePull event: %+v", event.Reason)
-	}
-
-	return nil
-}
-
-func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
+// handleWatchEvent processes a watch event and returns true if the watch should be stopped.
+func (c *imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 	logger := c.logger()
 
 	var event *corev1.Event
@@ -117,25 +91,45 @@ func (c imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 		return true
 	} else if event, isEvent = watchEvent.Object.(*corev1.Event); !isEvent {
 		logger.Panic().Msgf("Watch event is not an Event: %+v", watchEvent)
-	} else if statisticEvent :=
-		c.handleEvent(watchEvent.Type, event); statisticEvent != nil {
-		logger.Debug().Msgf(
-			"Publish event: %s", reflect.TypeOf(statisticEvent).String(),
-		)
-		c.eh.Publish(statisticEvent)
 	}
+
+	c.handleEvent(watchEvent.Type, event)
 
 	return false
 }
 
-func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
+// handleEvent handles a Kubernetes event and publishes it to the statistic event loop if it is an image pull event.
+func (c *imagePullCollector) handleEvent(
+	eventType watch.EventType,
+	event *corev1.Event,
+) {
+	logger := c.logger()
+
+	if eventType != watch.Added {
+		logger.Debug().Msgf("Ignoring non-Added event: %+v", eventType)
+
+		return
+	}
+
+	switch event.Reason {
+	case "Pulling", "Pulled":
+		if _, err := c.statisticEventLoop.ImagePullUpdate(context.TODO(), c.pod, event); err != nil {
+			logger.Error().Err(err).Any("event", event).Msg("Error publishing ImagePull event")
+		}
+	default:
+		logger.Debug().Msgf("Ignoring non-ImagePull event: %+v", event.Reason)
+	}
+}
+
+// watch performs a watch on the Kubernetes API for image pull events related to the pod.
+func (c *imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	logger := c.logger()
 
 	// TODO: use a ("k8s.io/client-go/tools/watch").RetryWatcher to allow fetching
 	// existing events.
 	watchOpts := c.watchOptions()
 	watcher, err :=
-		clientset.CoreV1().Events(c.namespace).Watch(context.Background(), watchOpts)
+		clientset.CoreV1().Events(c.pod.Namespace).Watch(context.TODO(), watchOpts)
 	if err != nil {
 		watchOptsJSON, marshalErr := json.Marshal(watchOpts)
 		if marshalErr != nil {
@@ -143,7 +137,7 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 		}
 
 		logger.Panic().
-			Str("watch_namespace", c.namespace).
+			Str("watch_namespace", c.pod.Namespace).
 			RawJSON("watch_opts", watchOptsJSON).
 			AnErr("watch_opts_marshal_err", marshalErr).
 			Err(err).Msg("Error starting watcher.")
@@ -162,7 +156,7 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 			}
 
 			shouldBreak := c.handleWatchEvent(watchEvent)
-			prommetrics.EventsProcessed.
+			prommetrics.ImagePullWatchEvents.
 				With(prometheus.Labels{"event_type": string(watchEvent.Type)}).
 				Inc()
 			if shouldBreak {
@@ -172,15 +166,16 @@ func (c imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	}
 }
 
-func (c imagePullCollector) watchOptions() metav1.ListOptions {
-	timeOut := c.eh.options.KubeWatchTimeout
+// watchOptions builds the list options for the watch request.
+func (c *imagePullCollector) watchOptions() metav1.ListOptions {
+	timeOut := c.options.KubeWatchTimeout
 	watchOps := metav1.ListOptions{
 		TimeoutSeconds: &timeOut,
 		Watch:          true,
-		Limit:          c.eh.options.KubeWatchMaxEvents,
+		Limit:          c.options.KubeWatchMaxEvents,
 		FieldSelector: fields.Set(
 			map[string]string{
-				"involvedObject.uid": string(c.podUID),
+				"involvedObject.uid": string(c.pod.UID),
 			},
 		).AsSelector().String(),
 	}
@@ -188,12 +183,15 @@ func (c imagePullCollector) watchOptions() metav1.ListOptions {
 	return watchOps
 }
 
+// cancel cancels the image pull collector.
 // Should be run in goroutine to avoid blocking.
-func (c imagePullCollector) cancel(reason string) {
+func (c *imagePullCollector) cancel(reason string) {
 	logger := c.logger()
 
 	// Sleep for a bit to allow any pending events to flush.
-	time.Sleep(time.Second * time.Duration(c.eh.options.ImagePullCancelDelay))
+	//
+	// TODO(Izzette): surely there's a better way to do this?
+	time.Sleep(time.Second * time.Duration(c.options.ImagePullCancelDelay))
 
 	if !c.canceled.Swap(true) {
 		logger.Debug().Msgf("Canceling collector: %s", reason)
@@ -204,151 +202,15 @@ func (c imagePullCollector) cancel(reason string) {
 	}
 }
 
-func (c imagePullCollector) logger() *zerolog.Logger {
+// logger returns a logger scoped to the image pull collector.
+//
+// TODO(Izzette): Use a context.Context to propagate the logger fields.
+func (c *imagePullCollector) logger() *zerolog.Logger {
 	logger := log.With().
 		Str("subsystem", "image_pull_collector").
-		Str("kube_namespace", c.namespace).
-		Str("pod_uid", string(c.podUID)).
+		Str("kube_namespace", c.pod.Namespace).
+		Str("pod_uid", string(c.pod.UID)).
 		Logger()
 
 	return &logger
-}
-
-func (c imagePullCollector) parseContainerName(
-	fieldRef string,
-) (bool, string) {
-	r := regexp.MustCompile(`^spec\.((?:initC|c)ontainers)\{(.*)\}$`)
-
-	matches := r.FindStringSubmatch(fieldRef)
-	logger := c.logger()
-	if matches == nil {
-		logger.Error().
-			Str("field_ref", fieldRef).
-			Msg("Failed to find container name")
-
-		return false, ""
-	}
-
-	return matches[1] == "initContainers", matches[2]
-}
-
-type imagePullingEvent struct {
-	containerName string
-	initContainer bool
-	event         *corev1.Event
-	collector     *imagePullCollector
-}
-
-func (ev imagePullingEvent) podUID() types.UID {
-	return ev.collector.podUID
-}
-
-func (ev imagePullingEvent) logger() *zerolog.Logger {
-	logger := ev.collector.logger().
-		With().
-		Str("image_pull_event_type", "image_pulling").
-		Str("container_name", ev.containerName).
-		Bool("init_container", ev.initContainer).
-		Logger()
-
-	return &logger
-}
-
-func (ev imagePullingEvent) handle(statistic *podStatistic) bool {
-	logger := ev.logger()
-
-	var containerStatistic *containerStatistic
-	if ev.initContainer {
-		var ok bool
-		containerStatistic, ok = statistic.initContainers[ev.containerName]
-		if !ok {
-			logger.Error().Msgf(
-				"Init container statistic does not exist for %s", ev.containerName,
-			)
-
-			return false
-		}
-	} else {
-		var ok bool
-		containerStatistic, ok = statistic.containers[ev.containerName]
-		if !ok {
-			logger.Error().Msgf(
-				"Container statistic does not exist for %s", ev.containerName,
-			)
-
-			return false
-		}
-	}
-	imagePullStatistic := &containerStatistic.imagePull
-
-	if !imagePullStatistic.finishedTimestamp.IsZero() {
-		logger.Debug().Str("container_name", ev.containerName).
-			Msg("Skipping event for initialized pod")
-	} else if imagePullStatistic.startedTimestamp.IsZero() {
-		imagePullStatistic.startedTimestamp = ev.event.FirstTimestamp.Time
-	}
-
-	return false
-}
-
-type imagePulledEvent struct {
-	containerName string
-	initContainer bool
-	event         *corev1.Event
-	collector     *imagePullCollector
-}
-
-func (ev imagePulledEvent) podUID() types.UID {
-	return ev.collector.podUID
-}
-
-func (ev imagePulledEvent) logger() *zerolog.Logger {
-	logger := ev.collector.logger().
-		With().
-		Str("image_pull_event_type", "image_pulled").
-		Str("container_name", ev.containerName).
-		Bool("init_container", ev.initContainer).
-		Logger()
-
-	return &logger
-}
-
-func (ev imagePulledEvent) handle(statistic *podStatistic) bool {
-	logger := ev.logger()
-
-	var containerStatistic *containerStatistic
-	if ev.initContainer {
-		var ok bool
-		containerStatistic, ok = statistic.initContainers[ev.containerName]
-		if !ok {
-			logger.Error().Msgf(
-				"Init container statistic does not exist for %s", ev.containerName,
-			)
-
-			return false
-		}
-	} else {
-		var ok bool
-		containerStatistic, ok = statistic.containers[ev.containerName]
-		if !ok {
-			logger.Error().Msgf(
-				"Container statistic does not exist for %s", ev.containerName,
-			)
-
-			return false
-		}
-	}
-	imagePullStatistic := &containerStatistic.imagePull
-
-	if imagePullStatistic.finishedTimestamp.IsZero() {
-		imagePullStatistic.finishedTimestamp = ev.event.LastTimestamp.Time
-		if imagePullStatistic.startedTimestamp.IsZero() {
-			imagePullStatistic.alreadyPresent = true
-			imagePullStatistic.startedTimestamp = imagePullStatistic.finishedTimestamp
-		}
-	}
-
-	imagePullStatistic.log(ev.event.Message)
-
-	return false
 }
