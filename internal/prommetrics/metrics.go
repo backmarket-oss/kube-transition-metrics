@@ -76,6 +76,13 @@ var (
 			Help: "Current number of pods tracked",
 		},
 	)
+	// ImagePullTracked tracks the current number of image pulls tracked.
+	ImagePullTracked = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "image_pull_statistics_tracked",
+			Help: "Current number of image pulls tracked",
+		},
+	)
 	// StatisticEventPublish tracks the time spent waiting to publish an event and the number of events published.
 	StatisticEventPublish = prometheus.NewSummary(
 		prometheus.SummaryOpts{
@@ -115,6 +122,7 @@ func Register() {
 		ImagePullCollectorRestarts,
 		ImagePullWatchEvents,
 		PodsTracked,
+		ImagePullTracked,
 		StatisticEventPublish,
 		StatisticEventQueueDepth,
 		StatisticEventProcessing,

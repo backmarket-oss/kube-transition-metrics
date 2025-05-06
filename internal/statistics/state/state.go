@@ -41,6 +41,11 @@ func (s *State) SetPodStatistics(podStatistics *PodStatistics) *State {
 	return s
 }
 
+// LenImagePullStatistics returns the number of image pull statistics.
+func (s *State) LenImagePullStatistics() int {
+	return s.imagePullStatistics.Len()
+}
+
 // GetImagePullStatistic returns the image pull statistic for the pod UID, if it exists.
 func (s *State) GetImagePullStatistic(uid types.UID) (*PodImagePullStatistic, bool) {
 	return s.imagePullStatistics.Get(uid)

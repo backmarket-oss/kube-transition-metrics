@@ -149,6 +149,7 @@ func (el *StatisticEventLoop) ImagePullDelete(
 // watcher watches the state of the event loop and updates the prometheus metrics.
 func (el *StatisticEventLoop) watcher(ctx context.Context, s safeconcurrencytypes.StateSnapshot[*state.State]) bool {
 	prommetrics.PodsTracked.Set(float64(s.State().GetPodStatistics().Len()))
+	prommetrics.ImagePullTracked.Set(float64(s.State().LenImagePullStatistics()))
 
 	return true
 }
