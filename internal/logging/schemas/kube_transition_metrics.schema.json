@@ -26,6 +26,11 @@
           "description": "The name of the Kubernetes Pod to which metrics pertain",
           "type": "string"
         },
+        "partial": {
+          "title": "Partial metric",
+          "description": "True if this metric is a partial metric, otherwise false. Partial metrics are emitted before the kube-transition-metrics controller is able to obtain the final metric, for example if the pod has not yet become ready.",
+          "type": "boolean"
+        },
         "pod": {
           "title": "Pod Metrics",
           "description": "Included if kube_transition_metric_type is equal to \"pod\".",
@@ -185,7 +190,7 @@
       },
       "additionalProperties": false,
       "allOf": [
-        { "required": ["kube_namespace", "pod_name", "type"] },
+        { "required": ["kube_namespace", "pod_name", "type", "partial"] },
         {
           "oneOf": [
             { "required": ["pod"] },

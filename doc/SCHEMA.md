@@ -13,33 +13,34 @@
   - [1.3. Property `Metric Record > kube_transition_metrics > type`](#kube_transition_metrics_type)
   - [1.4. Property `Metric Record > kube_transition_metrics > kube_namespace`](#kube_transition_metrics_kube_namespace)
   - [1.5. Property `Metric Record > kube_transition_metrics > pod_name`](#kube_transition_metrics_pod_name)
-  - [1.6. Property `Metric Record > kube_transition_metrics > pod`](#kube_transition_metrics_pod)
-    - [1.6.1. Property `Metric Record > kube_transition_metrics > pod > creation_timestamp`](#kube_transition_metrics_pod_creation_timestamp)
-    - [1.6.2. Property `Metric Record > kube_transition_metrics > pod > scheduled_timestamp`](#kube_transition_metrics_pod_scheduled_timestamp)
-    - [1.6.3. Property `Metric Record > kube_transition_metrics > pod > creation_to_scheduled_seconds`](#kube_transition_metrics_pod_creation_to_scheduled_seconds)
-    - [1.6.4. Property `Metric Record > kube_transition_metrics > pod > initialized_timestamp`](#kube_transition_metrics_pod_initialized_timestamp)
-    - [1.6.5. Property `Metric Record > kube_transition_metrics > pod > creation_to_initialized_seconds`](#kube_transition_metrics_pod_creation_to_initialized_seconds)
-    - [1.6.6. Property `Metric Record > kube_transition_metrics > pod > scheduled_to_initialized_seconds`](#kube_transition_metrics_pod_scheduled_to_initialized_seconds)
-    - [1.6.7. Property `Metric Record > kube_transition_metrics > pod > ready_timestamp`](#kube_transition_metrics_pod_ready_timestamp)
-    - [1.6.8. Property `Metric Record > kube_transition_metrics > pod > creation_to_ready_seconds`](#kube_transition_metrics_pod_creation_to_ready_seconds)
-    - [1.6.9. Property `Metric Record > kube_transition_metrics > pod > initialized_to_ready_seconds`](#kube_transition_metrics_pod_initialized_to_ready_seconds)
-  - [1.7. Property `Metric Record > kube_transition_metrics > container`](#kube_transition_metrics_container)
-    - [1.7.1. Property `Metric Record > kube_transition_metrics > container > name`](#kube_transition_metrics_container_name)
-    - [1.7.2. Property `Metric Record > kube_transition_metrics > container > init_container`](#kube_transition_metrics_container_init_container)
-    - [1.7.3. Property `Metric Record > kube_transition_metrics > container > previous_to_running_seconds`](#kube_transition_metrics_container_previous_to_running_seconds)
-    - [1.7.4. Property `Metric Record > kube_transition_metrics > container > initialized_to_running_seconds`](#kube_transition_metrics_container_initialized_to_running_seconds)
-    - [1.7.5. Property `Metric Record > kube_transition_metrics > container > running_timestamp`](#kube_transition_metrics_container_running_timestamp)
-    - [1.7.6. Property `Metric Record > kube_transition_metrics > container > started_timestamp`](#kube_transition_metrics_container_started_timestamp)
-    - [1.7.7. Property `Metric Record > kube_transition_metrics > container > running_to_started_seconds`](#kube_transition_metrics_container_running_to_started_seconds)
-    - [1.7.8. Property `Metric Record > kube_transition_metrics > container > ready_timestamp`](#kube_transition_metrics_container_ready_timestamp)
-    - [1.7.9. Property `Metric Record > kube_transition_metrics > container > running_to_ready_seconds`](#kube_transition_metrics_container_running_to_ready_seconds)
-    - [1.7.10. Property `Metric Record > kube_transition_metrics > container > started_to_ready_seconds`](#kube_transition_metrics_container_started_to_ready_seconds)
-  - [1.8. Property `Metric Record > kube_transition_metrics > image_pull`](#kube_transition_metrics_image_pull)
-    - [1.8.1. Property `Metric Record > kube_transition_metrics > image_pull > container_name`](#kube_transition_metrics_image_pull_container_name)
-    - [1.8.2. Property `Metric Record > kube_transition_metrics > image_pull > already_present`](#kube_transition_metrics_image_pull_already_present)
-    - [1.8.3. Property `Metric Record > kube_transition_metrics > image_pull > started_timestamp`](#kube_transition_metrics_image_pull_started_timestamp)
-    - [1.8.4. Property `Metric Record > kube_transition_metrics > image_pull > finished_timestamp`](#kube_transition_metrics_image_pull_finished_timestamp)
-    - [1.8.5. Property `Metric Record > kube_transition_metrics > image_pull > duration_seconds`](#kube_transition_metrics_image_pull_duration_seconds)
+  - [1.6. Property `Metric Record > kube_transition_metrics > partial`](#kube_transition_metrics_partial)
+  - [1.7. Property `Metric Record > kube_transition_metrics > pod`](#kube_transition_metrics_pod)
+    - [1.7.1. Property `Metric Record > kube_transition_metrics > pod > creation_timestamp`](#kube_transition_metrics_pod_creation_timestamp)
+    - [1.7.2. Property `Metric Record > kube_transition_metrics > pod > scheduled_timestamp`](#kube_transition_metrics_pod_scheduled_timestamp)
+    - [1.7.3. Property `Metric Record > kube_transition_metrics > pod > creation_to_scheduled_seconds`](#kube_transition_metrics_pod_creation_to_scheduled_seconds)
+    - [1.7.4. Property `Metric Record > kube_transition_metrics > pod > initialized_timestamp`](#kube_transition_metrics_pod_initialized_timestamp)
+    - [1.7.5. Property `Metric Record > kube_transition_metrics > pod > creation_to_initialized_seconds`](#kube_transition_metrics_pod_creation_to_initialized_seconds)
+    - [1.7.6. Property `Metric Record > kube_transition_metrics > pod > scheduled_to_initialized_seconds`](#kube_transition_metrics_pod_scheduled_to_initialized_seconds)
+    - [1.7.7. Property `Metric Record > kube_transition_metrics > pod > ready_timestamp`](#kube_transition_metrics_pod_ready_timestamp)
+    - [1.7.8. Property `Metric Record > kube_transition_metrics > pod > creation_to_ready_seconds`](#kube_transition_metrics_pod_creation_to_ready_seconds)
+    - [1.7.9. Property `Metric Record > kube_transition_metrics > pod > initialized_to_ready_seconds`](#kube_transition_metrics_pod_initialized_to_ready_seconds)
+  - [1.8. Property `Metric Record > kube_transition_metrics > container`](#kube_transition_metrics_container)
+    - [1.8.1. Property `Metric Record > kube_transition_metrics > container > name`](#kube_transition_metrics_container_name)
+    - [1.8.2. Property `Metric Record > kube_transition_metrics > container > init_container`](#kube_transition_metrics_container_init_container)
+    - [1.8.3. Property `Metric Record > kube_transition_metrics > container > previous_to_running_seconds`](#kube_transition_metrics_container_previous_to_running_seconds)
+    - [1.8.4. Property `Metric Record > kube_transition_metrics > container > initialized_to_running_seconds`](#kube_transition_metrics_container_initialized_to_running_seconds)
+    - [1.8.5. Property `Metric Record > kube_transition_metrics > container > running_timestamp`](#kube_transition_metrics_container_running_timestamp)
+    - [1.8.6. Property `Metric Record > kube_transition_metrics > container > started_timestamp`](#kube_transition_metrics_container_started_timestamp)
+    - [1.8.7. Property `Metric Record > kube_transition_metrics > container > running_to_started_seconds`](#kube_transition_metrics_container_running_to_started_seconds)
+    - [1.8.8. Property `Metric Record > kube_transition_metrics > container > ready_timestamp`](#kube_transition_metrics_container_ready_timestamp)
+    - [1.8.9. Property `Metric Record > kube_transition_metrics > container > running_to_ready_seconds`](#kube_transition_metrics_container_running_to_ready_seconds)
+    - [1.8.10. Property `Metric Record > kube_transition_metrics > container > started_to_ready_seconds`](#kube_transition_metrics_container_started_to_ready_seconds)
+  - [1.9. Property `Metric Record > kube_transition_metrics > image_pull`](#kube_transition_metrics_image_pull)
+    - [1.9.1. Property `Metric Record > kube_transition_metrics > image_pull > container_name`](#kube_transition_metrics_image_pull_container_name)
+    - [1.9.2. Property `Metric Record > kube_transition_metrics > image_pull > already_present`](#kube_transition_metrics_image_pull_already_present)
+    - [1.9.3. Property `Metric Record > kube_transition_metrics > image_pull > started_timestamp`](#kube_transition_metrics_image_pull_started_timestamp)
+    - [1.9.4. Property `Metric Record > kube_transition_metrics > image_pull > finished_timestamp`](#kube_transition_metrics_image_pull_finished_timestamp)
+    - [1.9.5. Property `Metric Record > kube_transition_metrics > image_pull > duration_seconds`](#kube_transition_metrics_image_pull_duration_seconds)
 - [2. Property `Metric Record > time`](#time)
 - [3. Property `Metric Record > message`](#message)
 
@@ -76,6 +77,7 @@
 | - [type](#kube_transition_metrics_type )                     | enum (of string) | Metric type               |
 | - [kube_namespace](#kube_transition_metrics_kube_namespace ) | string           | Kubernetes Namespace name |
 | - [pod_name](#kube_transition_metrics_pod_name )             | string           | Kubernetes Pod name       |
+| - [partial](#kube_transition_metrics_partial )               | boolean          | Partial metric            |
 | - [pod](#kube_transition_metrics_pod )                       | object           | Pod Metrics               |
 | - [container](#kube_transition_metrics_container )           | object           | Container Metrics         |
 | - [image_pull](#kube_transition_metrics_image_pull )         | object           | Image Pull Metrics        |
@@ -97,6 +99,7 @@
 * kube_namespace
 * pod_name
 * type
+* partial
 
 ### <a name="kube_transition_metrics_allOf_i1"></a>1.2. Property `Metric Record > kube_transition_metrics > allOf > item 1`
 
@@ -183,7 +186,18 @@ Must be one of:
 
 **Description:** The name of the Kubernetes Pod to which metrics pertain
 
-### <a name="kube_transition_metrics_pod"></a>1.6. Property `Metric Record > kube_transition_metrics > pod`
+### <a name="kube_transition_metrics_partial"></a>1.6. Property `Metric Record > kube_transition_metrics > partial`
+
+**Title:** Partial metric
+
+|              |           |
+| ------------ | --------- |
+| **Type**     | `boolean` |
+| **Required** | No        |
+
+**Description:** True if this metric is a partial metric, otherwise false. Partial metrics are emitted before the kube-transition-metrics controller is able to obtain the final metric, for example if the pod has not yet become ready.
+
+### <a name="kube_transition_metrics_pod"></a>1.7. Property `Metric Record > kube_transition_metrics > pod`
 
 **Title:** Pod Metrics
 
@@ -207,7 +221,7 @@ Must be one of:
 | - [creation_to_ready_seconds](#kube_transition_metrics_pod_creation_to_ready_seconds )               | number | Pod Creation to Ready        |
 | - [initialized_to_ready_seconds](#kube_transition_metrics_pod_initialized_to_ready_seconds )         | number | Pod Initialized to Ready     |
 
-#### <a name="kube_transition_metrics_pod_creation_timestamp"></a>1.6.1. Property `Metric Record > kube_transition_metrics > pod > creation_timestamp`
+#### <a name="kube_transition_metrics_pod_creation_timestamp"></a>1.7.1. Property `Metric Record > kube_transition_metrics > pod > creation_timestamp`
 
 **Title:** Running Timestamp
 
@@ -219,7 +233,7 @@ Must be one of:
 
 **Description:** The timestamp for when the Pod was created.
 
-#### <a name="kube_transition_metrics_pod_scheduled_timestamp"></a>1.6.2. Property `Metric Record > kube_transition_metrics > pod > scheduled_timestamp`
+#### <a name="kube_transition_metrics_pod_scheduled_timestamp"></a>1.7.2. Property `Metric Record > kube_transition_metrics > pod > scheduled_timestamp`
 
 **Title:** Scheduled Timestamp
 
@@ -231,7 +245,7 @@ Must be one of:
 
 **Description:** The timestamp for when the Pod was scheduled (Pending->Initializing state).
 
-#### <a name="kube_transition_metrics_pod_creation_to_scheduled_seconds"></a>1.6.3. Property `Metric Record > kube_transition_metrics > pod > creation_to_scheduled_seconds`
+#### <a name="kube_transition_metrics_pod_creation_to_scheduled_seconds"></a>1.7.3. Property `Metric Record > kube_transition_metrics > pod > creation_to_scheduled_seconds`
 
 **Title:** Pod Creation to Scheduled
 
@@ -242,7 +256,7 @@ Must be one of:
 
 **Description:** The time in seconds it took to schedule the Pod.
 
-#### <a name="kube_transition_metrics_pod_initialized_timestamp"></a>1.6.4. Property `Metric Record > kube_transition_metrics > pod > initialized_timestamp`
+#### <a name="kube_transition_metrics_pod_initialized_timestamp"></a>1.7.4. Property `Metric Record > kube_transition_metrics > pod > initialized_timestamp`
 
 **Title:** initialized Timestamp
 
@@ -254,7 +268,7 @@ Must be one of:
 
 **Description:** The timestamp for when the Pod first entered Running state (all init containers exited successfuly and images are pulled). In the event of a pod restart this time is not reset.
 
-#### <a name="kube_transition_metrics_pod_creation_to_initialized_seconds"></a>1.6.5. Property `Metric Record > kube_transition_metrics > pod > creation_to_initialized_seconds`
+#### <a name="kube_transition_metrics_pod_creation_to_initialized_seconds"></a>1.7.5. Property `Metric Record > kube_transition_metrics > pod > creation_to_initialized_seconds`
 
 **Title:** Pod Creation to Initialized
 
@@ -265,7 +279,7 @@ Must be one of:
 
 **Description:** The time in seconds from the pod creation to when it was initialized.
 
-#### <a name="kube_transition_metrics_pod_scheduled_to_initialized_seconds"></a>1.6.6. Property `Metric Record > kube_transition_metrics > pod > scheduled_to_initialized_seconds`
+#### <a name="kube_transition_metrics_pod_scheduled_to_initialized_seconds"></a>1.7.6. Property `Metric Record > kube_transition_metrics > pod > scheduled_to_initialized_seconds`
 
 **Title:** Pod Scheduled to Initialized
 
@@ -276,7 +290,7 @@ Must be one of:
 
 **Description:** The time in seconds from the pod was scheduled to when it was initialized (Initializing->Running state).
 
-#### <a name="kube_transition_metrics_pod_ready_timestamp"></a>1.6.7. Property `Metric Record > kube_transition_metrics > pod > ready_timestamp`
+#### <a name="kube_transition_metrics_pod_ready_timestamp"></a>1.7.7. Property `Metric Record > kube_transition_metrics > pod > ready_timestamp`
 
 **Title:** Ready Timestamp
 
@@ -288,7 +302,7 @@ Must be one of:
 
 **Description:** The timestamp for when the Pod first became Ready (all containers had readinessProbe success). In the event of a pod restart this time is not reset.
 
-#### <a name="kube_transition_metrics_pod_creation_to_ready_seconds"></a>1.6.8. Property `Metric Record > kube_transition_metrics > pod > creation_to_ready_seconds`
+#### <a name="kube_transition_metrics_pod_creation_to_ready_seconds"></a>1.7.8. Property `Metric Record > kube_transition_metrics > pod > creation_to_ready_seconds`
 
 **Title:** Pod Creation to Ready
 
@@ -299,7 +313,7 @@ Must be one of:
 
 **Description:** The time in seconds from the pod creation to becoming Ready.
 
-#### <a name="kube_transition_metrics_pod_initialized_to_ready_seconds"></a>1.6.9. Property `Metric Record > kube_transition_metrics > pod > initialized_to_ready_seconds`
+#### <a name="kube_transition_metrics_pod_initialized_to_ready_seconds"></a>1.7.9. Property `Metric Record > kube_transition_metrics > pod > initialized_to_ready_seconds`
 
 **Title:** Pod Initialized to Ready
 
@@ -310,7 +324,7 @@ Must be one of:
 
 **Description:** The time in seconds from the pod was initialized (Running state) to when it first bacame Ready.
 
-### <a name="kube_transition_metrics_container"></a>1.7. Property `Metric Record > kube_transition_metrics > container`
+### <a name="kube_transition_metrics_container"></a>1.8. Property `Metric Record > kube_transition_metrics > container`
 
 **Title:** Container Metrics
 
@@ -335,7 +349,7 @@ Must be one of:
 | - [running_to_ready_seconds](#kube_transition_metrics_container_running_to_ready_seconds )             | number  | Running to Ready                       |
 | - [started_to_ready_seconds](#kube_transition_metrics_container_started_to_ready_seconds )             | number  | Running to Ready                       |
 
-#### <a name="kube_transition_metrics_container_name"></a>1.7.1. Property `Metric Record > kube_transition_metrics > container > name`
+#### <a name="kube_transition_metrics_container_name"></a>1.8.1. Property `Metric Record > kube_transition_metrics > container > name`
 
 **Title:** Container name
 
@@ -346,7 +360,7 @@ Must be one of:
 
 **Description:** The name of the container to which metrics pertain
 
-#### <a name="kube_transition_metrics_container_init_container"></a>1.7.2. Property `Metric Record > kube_transition_metrics > container > init_container`
+#### <a name="kube_transition_metrics_container_init_container"></a>1.8.2. Property `Metric Record > kube_transition_metrics > container > init_container`
 
 **Title:** Init Container
 
@@ -357,7 +371,7 @@ Must be one of:
 
 **Description:** True if the container is an init container, otherwise false.
 
-#### <a name="kube_transition_metrics_container_previous_to_running_seconds"></a>1.7.3. Property `Metric Record > kube_transition_metrics > container > previous_to_running_seconds`
+#### <a name="kube_transition_metrics_container_previous_to_running_seconds"></a>1.8.3. Property `Metric Record > kube_transition_metrics > container > previous_to_running_seconds`
 
 **Title:** Previous Container Finished to Running
 
@@ -368,7 +382,7 @@ Must be one of:
 
 **Description:** The time in seconds from the previous init container becoming Ready (exited 0) to this container running. Only set for init containers, absent for the first init container.
 
-#### <a name="kube_transition_metrics_container_initialized_to_running_seconds"></a>1.7.4. Property `Metric Record > kube_transition_metrics > container > initialized_to_running_seconds`
+#### <a name="kube_transition_metrics_container_initialized_to_running_seconds"></a>1.8.4. Property `Metric Record > kube_transition_metrics > container > initialized_to_running_seconds`
 
 **Title:** Pod Initialized to Running
 
@@ -379,7 +393,7 @@ Must be one of:
 
 **Description:** The time in seconds from the Pod becoming initialized (all init containers exited 0) to this container running. Only set for non-init containers.
 
-#### <a name="kube_transition_metrics_container_running_timestamp"></a>1.7.5. Property `Metric Record > kube_transition_metrics > container > running_timestamp`
+#### <a name="kube_transition_metrics_container_running_timestamp"></a>1.8.5. Property `Metric Record > kube_transition_metrics > container > running_timestamp`
 
 **Title:** Running Timestamp
 
@@ -391,7 +405,7 @@ Must be one of:
 
 **Description:** The timestamp for when the container first entered Running state (first fork(2)/execve(2) in container environment). In the event of a pod restart, this timestamp is NOT updated.
 
-#### <a name="kube_transition_metrics_container_started_timestamp"></a>1.7.6. Property `Metric Record > kube_transition_metrics > container > started_timestamp`
+#### <a name="kube_transition_metrics_container_started_timestamp"></a>1.8.6. Property `Metric Record > kube_transition_metrics > container > started_timestamp`
 
 **Title:** Started Timestamp
 
@@ -403,7 +417,7 @@ Must be one of:
 
 **Description:** The timestamp for when the container first started state (startupProbe success). In the event of a pod restart, this timestamp is NOT updated. Only set for non-init containers.
 
-#### <a name="kube_transition_metrics_container_running_to_started_seconds"></a>1.7.7. Property `Metric Record > kube_transition_metrics > container > running_to_started_seconds`
+#### <a name="kube_transition_metrics_container_running_to_started_seconds"></a>1.8.7. Property `Metric Record > kube_transition_metrics > container > running_to_started_seconds`
 
 **Title:** Running to Started
 
@@ -414,7 +428,7 @@ Must be one of:
 
 **Description:** The time in seconds from the container becoming running to this container started. Only set for non-init containers.
 
-#### <a name="kube_transition_metrics_container_ready_timestamp"></a>1.7.8. Property `Metric Record > kube_transition_metrics > container > ready_timestamp`
+#### <a name="kube_transition_metrics_container_ready_timestamp"></a>1.8.8. Property `Metric Record > kube_transition_metrics > container > ready_timestamp`
 
 **Title:** Started Timestamp
 
@@ -426,7 +440,7 @@ Must be one of:
 
 **Description:** The timestamp for when the container first ready state (readinessProbe success). In the event of a pod restart, this timestamp is NOT updated.
 
-#### <a name="kube_transition_metrics_container_running_to_ready_seconds"></a>1.7.9. Property `Metric Record > kube_transition_metrics > container > running_to_ready_seconds`
+#### <a name="kube_transition_metrics_container_running_to_ready_seconds"></a>1.8.9. Property `Metric Record > kube_transition_metrics > container > running_to_ready_seconds`
 
 **Title:** Running to Ready
 
@@ -437,7 +451,7 @@ Must be one of:
 
 **Description:** The time in seconds from the container becoming running to this container ready. In init containers, this is the time the container exited with a successful status.
 
-#### <a name="kube_transition_metrics_container_started_to_ready_seconds"></a>1.7.10. Property `Metric Record > kube_transition_metrics > container > started_to_ready_seconds`
+#### <a name="kube_transition_metrics_container_started_to_ready_seconds"></a>1.8.10. Property `Metric Record > kube_transition_metrics > container > started_to_ready_seconds`
 
 **Title:** Running to Ready
 
@@ -448,7 +462,7 @@ Must be one of:
 
 **Description:** The time in seconds from the container becoming started to this container ready. Only set for non-init containers.
 
-### <a name="kube_transition_metrics_image_pull"></a>1.8. Property `Metric Record > kube_transition_metrics > image_pull`
+### <a name="kube_transition_metrics_image_pull"></a>1.9. Property `Metric Record > kube_transition_metrics > image_pull`
 
 **Title:** Image Pull Metrics
 
@@ -468,7 +482,7 @@ Must be one of:
 | - [finished_timestamp](#kube_transition_metrics_image_pull_finished_timestamp ) | string  | Finished Timestamp |
 | - [duration_seconds](#kube_transition_metrics_image_pull_duration_seconds )     | number  | Duration           |
 
-#### <a name="kube_transition_metrics_image_pull_container_name"></a>1.8.1. Property `Metric Record > kube_transition_metrics > image_pull > container_name`
+#### <a name="kube_transition_metrics_image_pull_container_name"></a>1.9.1. Property `Metric Record > kube_transition_metrics > image_pull > container_name`
 
 **Title:** Container name
 
@@ -479,7 +493,7 @@ Must be one of:
 
 **Description:** The name of the container which initiated the image pull
 
-#### <a name="kube_transition_metrics_image_pull_already_present"></a>1.8.2. Property `Metric Record > kube_transition_metrics > image_pull > already_present`
+#### <a name="kube_transition_metrics_image_pull_already_present"></a>1.9.2. Property `Metric Record > kube_transition_metrics > image_pull > already_present`
 
 **Title:** Already Present
 
@@ -490,7 +504,7 @@ Must be one of:
 
 **Description:** true if the image was already present on the machine, otherwise false.
 
-#### <a name="kube_transition_metrics_image_pull_started_timestamp"></a>1.8.3. Property `Metric Record > kube_transition_metrics > image_pull > started_timestamp`
+#### <a name="kube_transition_metrics_image_pull_started_timestamp"></a>1.9.3. Property `Metric Record > kube_transition_metrics > image_pull > started_timestamp`
 
 **Title:** Started Timestamp
 
@@ -502,7 +516,7 @@ Must be one of:
 
 **Description:** The timestamp for when the image pull was first initiated. This is obtained from the Event emitted by the Kubelet and may not be 100% accurate. In the event of ImagePullFailed this time is not reset for subsequent attempts.
 
-#### <a name="kube_transition_metrics_image_pull_finished_timestamp"></a>1.8.4. Property `Metric Record > kube_transition_metrics > image_pull > finished_timestamp`
+#### <a name="kube_transition_metrics_image_pull_finished_timestamp"></a>1.9.4. Property `Metric Record > kube_transition_metrics > image_pull > finished_timestamp`
 
 **Title:** Finished Timestamp
 
@@ -514,7 +528,7 @@ Must be one of:
 
 **Description:** The timestamp for when the image pull was finished. This is obtained from the Event emitted by the Kubelet and may not be 100% accurate.
 
-#### <a name="kube_transition_metrics_image_pull_duration_seconds"></a>1.8.5. Property `Metric Record > kube_transition_metrics > image_pull > duration_seconds`
+#### <a name="kube_transition_metrics_image_pull_duration_seconds"></a>1.9.5. Property `Metric Record > kube_transition_metrics > image_pull > duration_seconds`
 
 **Title:** Duration
 

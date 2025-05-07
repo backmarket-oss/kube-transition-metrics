@@ -74,6 +74,7 @@ func TestImagePullStatisticLog(t *testing.T) {
 				"duration_seconds": 5 * time.Second.Seconds(),
 			},
 			"kube_namespace": "test-namespace",
+			"partial":        false,
 			"pod_name":       "test-pod",
 		},
 		"message": "Test log message",
