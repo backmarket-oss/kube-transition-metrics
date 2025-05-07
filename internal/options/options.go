@@ -15,6 +15,7 @@ type Options struct {
 	KubeWatchTimeout          int64
 	KubeWatchMaxEvents        int64
 	StatisticEventQueueLength int
+	EmitPartialStatistics     bool
 	LogLevel                  zerolog.Level
 }
 
@@ -55,6 +56,14 @@ func Parse() *Options {
 		"statistic-event-queue-length",
 		1000,
 		"The maximum number of queued statistic events (ADVANCED)")
+	flag.BoolVar(
+		&options.EmitPartialStatistics,
+		"emit-partial",
+		false,
+		"Emit partial statistics for pods that have not yet become Ready and image pulls that have not yet completed. When "+
+			"set to false, pods that never become Ready and image pulls that never complete will not be included in the "+
+			"statistics. Partial statistics will always be emitted for pods that are deleted before they become Ready. When "+
+			"set to true, multiple statistics will be emitted for the same pod/image pull. (ADVANCED)")
 	logLevel := flag.String(
 		"log-level",
 		"INFO",
