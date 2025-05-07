@@ -123,8 +123,6 @@ func (el *PodStatisticEventLoop) watcher(
 	s safeconcurrencytypes.StateSnapshot[*state.PodStatistics],
 ) bool {
 	prommetrics.PodsTracked.Set(float64(s.State().Len()))
-	// TODO(Izzette): move to image pull event loop.
-	// prommetrics.ImagePullTracked.Set(float64(s.State().LenImagePullStatistics()))
 
 	return true
 }
