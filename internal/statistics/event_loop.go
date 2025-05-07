@@ -14,37 +14,37 @@ import (
 	safeconcurrencytypes "github.com/Izzette/go-safeconcurrency/api/types"
 	"github.com/Izzette/go-safeconcurrency/eventloop"
 	"github.com/Izzette/go-safeconcurrency/eventloop/snapshot"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// StatisticEventLoop loops over statistic events sent by collectors to track and update metrics for Pod lifecycle
-// events.
-type StatisticEventLoop struct {
-	safeconcurrencytypes.EventLoop[*state.State]
+// PodStatisticEventLoop loops over pod statistic events sent by collectors to track and update metrics.
+type PodStatisticEventLoop struct {
+	safeconcurrencytypes.EventLoop[*state.PodStatistics]
 	watcherChan <-chan struct{}
 }
 
 // NewStatisticEventLoop creates a new StatisticEventHandler which filters out events for the provided
 // initialSyncBlacklist Pod UIDs.
-func NewStatisticEventLoop(options *options.Options) *StatisticEventLoop {
-	s := state.NewState()
-	snapshot := snapshot.NewCopyable[*state.State](s)
+func NewStatisticEventLoop(options *options.Options) *PodStatisticEventLoop {
+	s := state.NewPodStatistics([]types.UID{})
+	snapshot := snapshot.NewCopyable[*state.PodStatistics](s)
 	if options.StatisticEventQueueLength < 0 {
 		log.Panic().Msg("StatisticEventQueueLength must be greater than 0")
 	}
 	buffer := uint(options.StatisticEventQueueLength)
 
-	return &StatisticEventLoop{
-		EventLoop: eventloop.NewBuffered[*state.State](snapshot, buffer),
+	return &PodStatisticEventLoop{
+		EventLoop: eventloop.NewBuffered[*state.PodStatistics](snapshot, buffer),
 	}
 }
 
 // Start starts the event loop and begins watching the state of the event loop.
 // Start implements [eventloop.EventLoop.Start].
-func (el *StatisticEventLoop) Start() {
+func (el *PodStatisticEventLoop) Start() {
 	el.EventLoop.Start()
 	// EventLoop.Start() will panic if the event loop is already started, so we can be sure to do this assignment only
 	// once.
@@ -53,7 +53,7 @@ func (el *StatisticEventLoop) Start() {
 
 // Close closes the event loop and waits for the watcher to finish.
 // Close implements [eventloop.EventLoop.Close].
-func (el *StatisticEventLoop) Close() {
+func (el *PodStatisticEventLoop) Close() {
 	el.EventLoop.Close()
 	// Wait for the watcher to finish too.
 	<-el.watcherChan
@@ -61,14 +61,16 @@ func (el *StatisticEventLoop) Close() {
 
 // Send sends an event to the event loop and tracks the time it took to process the event.
 // Send implements [eventloop.EventLoop.Send].
-func (el *StatisticEventLoop) Send(
+func (el *PodStatisticEventLoop) Send(
 	ctx context.Context,
-	event safeconcurrencytypes.Event[*state.State],
+	event safeconcurrencytypes.Event[*state.PodStatistics],
 ) (safeconcurrencytypes.GenerationID, error) {
 	start := time.Now()
 
+	labels := prometheus.Labels{"event_loop": "pod"}
+
 	// Wrap the event to track the event metrics.
-	tevent := &trackEvent{event, &sync.Once{}}
+	tevent := &trackEvent[*state.PodStatistics]{event, &sync.Once{}, labels}
 	gen, err := el.EventLoop.Send(ctx, tevent)
 	if err == nil {
 		// Only increment the queue depth if the event was successfully sent to the event loop.
@@ -76,54 +78,120 @@ func (el *StatisticEventLoop) Send(
 	}
 
 	dur := time.Since(start)
-	prommetrics.StatisticEventPublish.Observe(dur.Seconds())
+	prommetrics.StatisticEventPublish.With(labels).Observe(dur.Seconds())
 
 	//nolint:wrapcheck
 	return gen, err
 }
 
 // PodUpdate sends an event to update the pod statistic for a pod based on the latest Kubernetes Pod.
-func (el *StatisticEventLoop) PodUpdate(
+func (el *PodStatisticEventLoop) PodUpdate(
 	ctx context.Context,
 	pod *corev1.Pod,
 ) (safeconcurrencytypes.GenerationID, error) {
-	return el.Send(ctx, &podEvent{
-		&podUpdateEvent{
-			pod:       pod,
-			eventTime: time.Now(),
-			output:    metricOutput,
-		},
+	return el.Send(ctx, &podUpdateEvent{
+		pod:       pod,
+		eventTime: time.Now(),
+		output:    metricOutput,
 	})
 }
 
 // PodDelete sends an event to stop tracking the pod statistic for a pod after it has been deleted from the Kubernetes
 // API.
-func (el *StatisticEventLoop) PodDelete(
+func (el *PodStatisticEventLoop) PodDelete(
 	ctx context.Context,
 	podUID types.UID,
 ) (safeconcurrencytypes.GenerationID, error) {
-	return el.Send(ctx, &podEvent{
-		&podDeleteEvent{
-			podUID: podUID,
-		},
+	return el.Send(ctx, &podDeleteEvent{
+		podUID: podUID,
 	})
 }
 
 // PodResync sends an event to resync the event loop if the Kubernetes Watch API times out and events are lost.
-func (el *StatisticEventLoop) PodResync(
+func (el *PodStatisticEventLoop) PodResync(
 	ctx context.Context,
 	blacklistUIDs []types.UID,
 ) (safeconcurrencytypes.GenerationID, error) {
-	return el.Send(ctx, &podEvent{
-		&resyncEvent{
-			blacklistUIDs: blacklistUIDs,
-		},
+	return el.Send(ctx, &resyncEvent{
+		blacklistUIDs: blacklistUIDs,
 	})
+}
+
+// watcher watches the state of the event loop and updates the prometheus metrics.
+func (el *PodStatisticEventLoop) watcher(
+	ctx context.Context,
+	s safeconcurrencytypes.StateSnapshot[*state.PodStatistics],
+) bool {
+	prommetrics.PodsTracked.Set(float64(s.State().Len()))
+	// TODO(Izzette): move to image pull event loop.
+	// prommetrics.ImagePullTracked.Set(float64(s.State().LenImagePullStatistics()))
+
+	return true
+}
+
+// ImagePullStatisticEventLoop loops over image pull statistic events sent by collectors to track and update metrics for
+// image pulls.
+type ImagePullStatisticEventLoop struct {
+	safeconcurrencytypes.EventLoop[*state.ImagePullStatistics]
+	watcherChan <-chan struct{}
+}
+
+// NewImagePullStatisticEventLoop creates a new ImagePullStatisticEventLoop.
+func NewImagePullStatisticEventLoop(options *options.Options) *ImagePullStatisticEventLoop {
+	s := state.NewImagePullStatistics()
+	snapshot := snapshot.NewCopyable[*state.ImagePullStatistics](s)
+	if options.StatisticEventQueueLength < 0 {
+		log.Panic().Msg("StatisticEventQueueLength must be greater than 0")
+	}
+	buffer := uint(options.StatisticEventQueueLength)
+
+	return &ImagePullStatisticEventLoop{
+		EventLoop: eventloop.NewBuffered[*state.ImagePullStatistics](snapshot, buffer),
+	}
+}
+
+// Start starts the event loop and begins watching the state of the event loop.
+func (el *ImagePullStatisticEventLoop) Start() {
+	el.EventLoop.Start()
+	// EventLoop.Start() will panic if the event loop is already started, so we can be sure to do this assignment only
+	// once.
+	el.watcherChan = eventloop.WatchState(context.TODO(), el.EventLoop, el.watcher)
+}
+
+// Close closes the event loop and waits for the watcher to finish.
+func (el *ImagePullStatisticEventLoop) Close() {
+	el.EventLoop.Close()
+	// Wait for the watcher to finish too.
+	<-el.watcherChan
+}
+
+// Send sends an event to the event loop and tracks the time it took to process the event.
+func (el *ImagePullStatisticEventLoop) Send(
+	ctx context.Context,
+	event safeconcurrencytypes.Event[*state.ImagePullStatistics],
+) (safeconcurrencytypes.GenerationID, error) {
+	start := time.Now()
+
+	labels := prometheus.Labels{"event_loop": "image_pull"}
+
+	// Wrap the event to track the event metrics.
+	tevent := &trackEvent[*state.ImagePullStatistics]{event, &sync.Once{}, labels}
+	gen, err := el.EventLoop.Send(ctx, tevent)
+	if err == nil {
+		// Only increment the queue depth if the event was successfully sent to the event loop.
+		tevent.incrementQueueDepth()
+	}
+
+	dur := time.Since(start)
+	prommetrics.StatisticEventPublish.With(labels).Observe(dur.Seconds())
+
+	//nolint:wrapcheck
+	return gen, err
 }
 
 // ImagePullUpdate sends an event to update the image pull statistic for a pod from the latest Kubernetes Event for
 // image pulling related events.
-func (el *StatisticEventLoop) ImagePullUpdate(
+func (el *ImagePullStatisticEventLoop) ImagePullUpdate(
 	ctx context.Context,
 	pod *corev1.Pod,
 	k8sEvent *corev1.Event,
@@ -137,7 +205,7 @@ func (el *StatisticEventLoop) ImagePullUpdate(
 
 // ImagePullDelete sends an event to delete the image pull statistic for a pod after the image pull is no longer being
 // tracked.
-func (el *StatisticEventLoop) ImagePullDelete(
+func (el *ImagePullStatisticEventLoop) ImagePullDelete(
 	ctx context.Context,
 	podUID types.UID,
 ) (safeconcurrencytypes.GenerationID, error) {
@@ -147,57 +215,45 @@ func (el *StatisticEventLoop) ImagePullDelete(
 }
 
 // watcher watches the state of the event loop and updates the prometheus metrics.
-func (el *StatisticEventLoop) watcher(ctx context.Context, s safeconcurrencytypes.StateSnapshot[*state.State]) bool {
-	prommetrics.PodsTracked.Set(float64(s.State().GetPodStatistics().Len()))
-	prommetrics.ImagePullTracked.Set(float64(s.State().LenImagePullStatistics()))
+func (el *ImagePullStatisticEventLoop) watcher(
+	ctx context.Context,
+	s safeconcurrencytypes.StateSnapshot[*state.ImagePullStatistics],
+) bool {
+	prommetrics.ImagePullTracked.Set(float64(s.State().Len()))
 
 	return true
 }
 
 // trackEvent wraps an event to track the event metrics.
-type trackEvent struct {
+type trackEvent[StateT any] struct {
 	// event is the event to dispatch.
-	event safeconcurrencytypes.Event[*state.State]
+	event safeconcurrencytypes.Event[StateT]
 	// queueDepthIncrementOnce is used to ensure that the queue depth is only incremented once per event.
 	// It allows the event to increment the queue depth when starting in the racy-case that the publisher did not yet
 	// increment it, allowing the queue depth to never be negative.
 	queueDepthIncrementOnce *sync.Once
+	// labels are the labels to use for the prometheus metrics.
+	labels prometheus.Labels
 }
 
 // Dispatch implements [safeconcurrencytypes.Event.Dispatch].
-func (e *trackEvent) Dispatch(gen safeconcurrencytypes.GenerationID, statisticState *state.State) *state.State {
+func (e *trackEvent[StateT]) Dispatch(gen safeconcurrencytypes.GenerationID, statisticState StateT) StateT {
 	// Increment in-case the publisher did not yet increment the queue depth.
 	// This prevents the queue depth from going negative in racey edge cases.
 	e.incrementQueueDepth()
-	prommetrics.StatisticEventQueueDepth.Dec()
+	prommetrics.StatisticEventQueueDepth.With(e.labels).Dec()
 
 	start := time.Now()
 	statisticState = e.event.Dispatch(gen, statisticState)
 	dur := time.Since(start)
-	prommetrics.StatisticEventProcessing.Observe(dur.Seconds())
+	prommetrics.StatisticEventProcessing.With(e.labels).Observe(dur.Seconds())
 
 	return statisticState
 }
 
 // incrementQueueDepth increments the queue depth metric.
-func (e *trackEvent) incrementQueueDepth() {
-	e.queueDepthIncrementOnce.Do(func() {
-		prommetrics.StatisticEventQueueDepth.Inc()
-	})
-}
-
-// podEvent wraps an event taking pod statistics as input.
-type podEvent struct {
-	event safeconcurrencytypes.Event[*state.PodStatistics]
-}
-
-// Dispatch implements [safeconcurrencytypes.Event.Dispatch].
-func (e *podEvent) Dispatch(gen safeconcurrencytypes.GenerationID, statisticState *state.State) *state.State {
-	podStatistics := statisticState.GetPodStatistics()
-	podStatistics = e.event.Dispatch(gen, podStatistics)
-	statisticState = statisticState.SetPodStatistics(podStatistics)
-
-	return statisticState
+func (e *trackEvent[StateT]) incrementQueueDepth() {
+	e.queueDepthIncrementOnce.Do(prommetrics.StatisticEventQueueDepth.With(e.labels).Inc)
 }
 
 // podUpdateEvent is used to update the pod statistic for a pod from the latest Kubernetes Pod.
@@ -283,7 +339,10 @@ type imagePullUpdateEvent struct {
 }
 
 // Dispatch implements [safeconcurrencytypes.Event.Dispatch].
-func (e *imagePullUpdateEvent) Dispatch(_ safeconcurrencytypes.GenerationID, statisticState *state.State) *state.State {
+func (e *imagePullUpdateEvent) Dispatch(
+	_ safeconcurrencytypes.GenerationID,
+	statisticState *state.ImagePullStatistics,
+) *state.ImagePullStatistics {
 	containerName, err := e.getContainerName()
 	if err != nil {
 		// e.logWith returns the zerolog.Event, so we can chain the calls.
@@ -293,7 +352,7 @@ func (e *imagePullUpdateEvent) Dispatch(_ safeconcurrencytypes.GenerationID, sta
 		return statisticState
 	}
 
-	podImagePullStatistic, podOk := statisticState.GetImagePullStatistic(e.pod.UID)
+	podImagePullStatistic, podOk := statisticState.Get(e.pod.UID)
 	if !podOk {
 		// e.logWith returns the zerolog.Event, so we can chain the calls.
 		//nolint:zerologlint
@@ -314,7 +373,7 @@ func (e *imagePullUpdateEvent) Dispatch(_ safeconcurrencytypes.GenerationID, sta
 	containerImagePullStatistic.Report(e.output, e.k8sEvent.Message)
 
 	podImagePullStatistic = podImagePullStatistic.Set(containerImagePullStatistic)
-	statisticState = statisticState.SetImagePullStatistic(e.pod.UID, podImagePullStatistic)
+	statisticState = statisticState.Set(e.pod.UID, podImagePullStatistic)
 
 	return statisticState
 }
@@ -347,8 +406,11 @@ type deleteImagePullEvent struct {
 }
 
 // Dispatch implements [safeconcurrencytypes.Event.Dispatch].
-func (e *deleteImagePullEvent) Dispatch(_ safeconcurrencytypes.GenerationID, statisticState *state.State) *state.State {
-	return statisticState.DeleteImagePullStatistic(e.podUID)
+func (e *deleteImagePullEvent) Dispatch(
+	_ safeconcurrencytypes.GenerationID,
+	statisticState *state.ImagePullStatistics,
+) *state.ImagePullStatistics {
+	return statisticState.Delete(e.podUID)
 }
 
 // fieldPathContainerRegex is used to parse the container name from the fieldRef of the Kubernetes Event.

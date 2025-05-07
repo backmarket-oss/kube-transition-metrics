@@ -30,8 +30,8 @@ func TestNewStatisticEventHandler(t *testing.T) {
 		blacklistUIDs: []types.UID{"test-uid"},
 	}
 
-	state, err := eventloop.SendAndWait(ctx, statisticsEventLoop, &podEvent{resyncEvent})
+	state, err := eventloop.SendAndWait(ctx, statisticsEventLoop, resyncEvent)
 	require.NoError(t, err, "Expected no error when sending resync event")
 	assert.NotNil(t, state, "Expected state to be not nil")
-	assert.True(t, state.State().GetPodStatistics().IsBlacklisted("test-uid"), "Expected test-uid to be blacklisted")
+	assert.True(t, state.State().IsBlacklisted("test-uid"), "Expected test-uid to be blacklisted")
 }
