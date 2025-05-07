@@ -24,6 +24,7 @@ import (
 // events.
 type StatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.State]
+	options     *options.Options
 	watcherChan <-chan struct{}
 }
 
@@ -38,6 +39,7 @@ func NewStatisticEventLoop(options *options.Options) *StatisticEventLoop {
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &StatisticEventLoop{
+		options:   options,
 		EventLoop: eventloop.NewBuffered[*state.State](snapshot, buffer),
 	}
 }
@@ -90,6 +92,7 @@ func (el *StatisticEventLoop) PodUpdate(
 	return el.Send(ctx, &podEvent{
 		&podUpdateEvent{
 			pod:       pod,
+			options:   el.options,
 			eventTime: time.Now(),
 			output:    metricOutput,
 		},
@@ -104,7 +107,8 @@ func (el *StatisticEventLoop) PodDelete(
 ) (safeconcurrencytypes.GenerationID, error) {
 	return el.Send(ctx, &podEvent{
 		&podDeleteEvent{
-			podUID: podUID,
+			options: el.options,
+			podUID:  podUID,
 		},
 	})
 }
@@ -117,6 +121,7 @@ func (el *StatisticEventLoop) PodResync(
 	return el.Send(ctx, &podEvent{
 		&resyncEvent{
 			blacklistUIDs: blacklistUIDs,
+			output:        metricOutput,
 		},
 	})
 }
@@ -132,6 +137,7 @@ func (el *StatisticEventLoop) ImagePullUpdate(
 		pod:      pod,
 		k8sEvent: k8sEvent,
 		output:   metricOutput,
+		options:  el.options,
 	})
 }
 
@@ -142,7 +148,8 @@ func (el *StatisticEventLoop) ImagePullDelete(
 	podUID types.UID,
 ) (safeconcurrencytypes.GenerationID, error) {
 	return el.Send(ctx, &deleteImagePullEvent{
-		podUID: podUID,
+		options: el.options,
+		podUID:  podUID,
 	})
 }
 
@@ -202,6 +209,7 @@ func (e *podEvent) Dispatch(gen safeconcurrencytypes.GenerationID, statisticStat
 
 // podUpdateEvent is used to update the pod statistic for a pod from the latest Kubernetes Pod.
 type podUpdateEvent struct {
+	options   *options.Options
 	pod       *corev1.Pod
 	eventTime time.Time
 	output    io.Writer
@@ -221,17 +229,26 @@ func (e *podUpdateEvent) Dispatch(
 		statistic = state.NewPodStatistic(e.eventTime, e.pod)
 	}
 
+	if !statistic.Partial() {
+		log.Trace().Str("pod_uid", string(e.pod.UID)).Msg("Pod statistic is already complete, skipping update")
+	}
+
 	statistic = statistic.Update(e.eventTime, e.pod)
 	podStatistics = podStatistics.Set(e.pod.UID, statistic)
 
-	statistic.Report(e.output)
+	// Emit the pod and container statistics for the pod.
+	if e.options.EmitPartialStatistics || !statistic.Partial() {
+		statistic.Report(e.output)
+	}
 
 	return podStatistics
 }
 
 // podDeleteEvent is used to delete the pod statistic for a pod after it has been deleted from the Kubernetes API.
 type podDeleteEvent struct {
-	podUID types.UID
+	options *options.Options
+	podUID  types.UID
+	output  io.Writer
 }
 
 // Dispatch implements [safeconcurrencytypes.Event.Dispatch].
@@ -239,6 +256,16 @@ func (e *podDeleteEvent) Dispatch(
 	_ safeconcurrencytypes.GenerationID,
 	podStatistics *state.PodStatistics,
 ) *state.PodStatistics {
+	statistic, ok := podStatistics.Get(e.podUID)
+	if !ok {
+		return podStatistics
+	}
+
+	// Emit statistics for pods that are deleted before they become Ready.
+	if statistic.Partial() {
+		statistic.Report(e.output)
+	}
+
 	return podStatistics.Delete(e.podUID)
 }
 
@@ -246,6 +273,7 @@ func (e *podDeleteEvent) Dispatch(
 // resyncEvent implements [safeconcurrencytypes.Event].
 type resyncEvent struct {
 	blacklistUIDs []types.UID
+	output        io.Writer
 }
 
 // Dispatch implements [safeconcurrencytypes.Event.Dispatch].
@@ -253,23 +281,33 @@ func (e *resyncEvent) Dispatch(
 	_ safeconcurrencytypes.GenerationID,
 	podStatistics *state.PodStatistics,
 ) *state.PodStatistics {
+	blacklistSet := make(map[types.UID]struct{}, len(e.blacklistUIDs))
+	for _, uid := range e.blacklistUIDs {
+		blacklistSet[uid] = struct{}{}
+	}
+
 	// newBlacklist contains UIDs that weren't previously present in the tracked pods.
 	newBlacklist := make([]types.UID, 0, len(e.blacklistUIDs))
-	statistics := make(map[types.UID]*state.PodStatistic, len(e.blacklistUIDs))
 	for _, uid := range e.blacklistUIDs {
-		statistic, ok := podStatistics.Get(uid)
-		if !ok {
+		if _, ok := podStatistics.Get(uid); !ok {
+			// This pod has appeared in the resync set, but was not previously tracked, we've missed some events for it, and
+			// need to blacklist it to prevent emitting inaccurate statistics.
 			newBlacklist = append(newBlacklist, uid)
-
-			continue
 		}
-		statistics[uid] = statistic
 	}
 
-	podStatistics = state.NewPodStatistics(newBlacklist)
-	for uid, statistic := range statistics {
-		podStatistics = podStatistics.Set(uid, statistic)
+	newPodStatistics := state.NewPodStatistics(newBlacklist)
+	for uid, statistic := range podStatistics.All() {
+		if _, ok := blacklistSet[uid]; ok {
+			// This pod was previously tracked, and is in the resync set (still in cluster), we can keep tracking it.
+			newPodStatistics = newPodStatistics.Set(uid, statistic)
+		} else if statistic.Partial() {
+			// This pod was previously tracked, but is not in the resync set (not in cluster), we can stop tracking it.
+			// We need to emit partial statistics for this pod if it has not been fully initialized before untracking it.
+			statistic.Report(e.output)
+		}
 	}
+	podStatistics = newPodStatistics
 
 	return podStatistics
 }
@@ -277,6 +315,7 @@ func (e *resyncEvent) Dispatch(
 // imagePullUpdateEvent is used to update the image pull statistic for a pod from the latest Kubernetes Event for image
 // pulling related events.
 type imagePullUpdateEvent struct {
+	options  *options.Options
 	pod      *corev1.Pod
 	k8sEvent *corev1.Event
 	output   io.Writer
@@ -297,12 +336,12 @@ func (e *imagePullUpdateEvent) Dispatch(_ safeconcurrencytypes.GenerationID, sta
 	if !podOk {
 		// e.logWith returns the zerolog.Event, so we can chain the calls.
 		//nolint:zerologlint
-		e.logWith(log.Trace()).Msg("pod image pull statistic not found")
+		e.logWith(log.Trace()).Msg("Pod image pull statistic not found")
 		podImagePullStatistic = state.NewPodImagePullStatistic(e.pod)
 	}
 	// e.logWith returns the zerolog.Event, so we can chain the calls.
 	//nolint:zerologlint
-	e.logWith(log.Trace()).Msgf("pod image pull statistic: %#+v", podImagePullStatistic)
+	e.logWith(log.Trace()).Any("pod_image_pull_statistic", podImagePullStatistic).Msg("Pod image pull statistic")
 
 	containerImagePullStatistic, containerOk := podImagePullStatistic.Get(containerName)
 	if !containerOk {
@@ -310,8 +349,19 @@ func (e *imagePullUpdateEvent) Dispatch(_ safeconcurrencytypes.GenerationID, sta
 		//nolint:zerologlint
 		e.logWith(log.Panic()).Msgf("container %#v in image pull statistic not found", containerName)
 	}
+
+	if !containerImagePullStatistic.Partial() {
+		log.Trace().
+			Str("pod_uid", string(e.pod.UID)).
+			Str("container_name", containerName).
+			Msg("Container image pull statistic is already complete, skipping update")
+	}
+
 	containerImagePullStatistic = containerImagePullStatistic.Update(e.k8sEvent)
-	containerImagePullStatistic.Report(e.output, e.k8sEvent.Message)
+
+	if e.options.EmitPartialStatistics || !containerImagePullStatistic.Partial() {
+		containerImagePullStatistic.Report(e.output, e.k8sEvent.Message)
+	}
 
 	podImagePullStatistic = podImagePullStatistic.Set(containerImagePullStatistic)
 	statisticState = statisticState.SetImagePullStatistic(e.pod.UID, podImagePullStatistic)
@@ -343,11 +393,25 @@ func (e *imagePullUpdateEvent) logWith(ev *zerolog.Event) *zerolog.Event {
 // deleteImagePullEvent is used to delete the image pull statistic for a pod after it has been deleted from the
 // Kubernetes API.
 type deleteImagePullEvent struct {
-	podUID types.UID
+	options *options.Options
+	podUID  types.UID
+	output  io.Writer
 }
 
 // Dispatch implements [safeconcurrencytypes.Event.Dispatch].
 func (e *deleteImagePullEvent) Dispatch(_ safeconcurrencytypes.GenerationID, statisticState *state.State) *state.State {
+	imagePullStatistic, ok := statisticState.GetImagePullStatistic(e.podUID)
+	if !ok {
+		log.Trace().Str("pod_uid", string(e.podUID)).Msg("Pod image pull statistic not found for deletion")
+
+		return statisticState
+	}
+	for _, container := range imagePullStatistic.Containers() {
+		if container.Partial() {
+			container.Report(e.output, "premature deletion of pod")
+		}
+	}
+
 	return statisticState.DeleteImagePullStatistic(e.podUID)
 }
 
