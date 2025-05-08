@@ -9,13 +9,23 @@ import (
 
 // Options contains the options for the controller.
 type Options struct {
-	ListenAddress             string
-	KubeconfigPath            string
-	ImagePullCancelDelay      float64
-	KubeWatchTimeout          int64
-	KubeWatchMaxEvents        int64
+	// ListenAddress is the host and port for the HTTP server delivering prometheus metrics and pprof profiling.
+	ListenAddress string
+	// KubeconfigPath is the path to the kube configuration file.
+	KubeconfigPath string
+	// ImagePullCancelDelay is the delay before canceling an image pull routine to ensure all events related to the pod
+	// have been processed.
+	ImagePullCancelDelay float64
+	// KubeWatchTimeout is the timeout for the Kubernetes Watch API.
+	KubeWatchTimeout int64
+	// KubeWatchMaxEvents is the maximum number of events to receive from the Kubernetes Watch API per response.
+	KubeWatchMaxEvents int64
+	// StatisticEventQueueLength is the maximum number of queued statistic events.
+	//
+	// TODO(Izzette): consider splitting into PodStatisticEventQueueLength and ImagePullStatisticEventQueueLength
 	StatisticEventQueueLength int
-	LogLevel                  zerolog.Level
+	// LogLevel is the global logging level.
+	LogLevel zerolog.Level
 }
 
 // Parse parses the options and returns them as a pointer to an Options struct.
@@ -38,8 +48,8 @@ func Parse() *Options {
 		&options.ImagePullCancelDelay,
 		"image-pull-cancel-delay",
 		3,
-		"The delay before canceling an image pull routine to ensure events are "+
-			"flushed (ADVANCED)")
+		"The delay (in seconds) before canceling an image pull collector routine to ensure all events related to the pod "+
+			"have been processed. (ADVANCED)")
 	flag.Int64Var(
 		&options.KubeWatchTimeout,
 		"kube-watch-timeout",

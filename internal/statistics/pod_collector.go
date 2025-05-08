@@ -28,9 +28,13 @@ type PodCollector struct {
 	// options are the options used to configure the PodCollector.
 	options *options.Options
 
-	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod and image pull
+	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod statistic
+	// states.
+	statisticEventLoop *PodStatisticEventLoop
+
+	// imagePullEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle image pull
 	// statistic states.
-	statisticEventLoop *StatisticEventLoop
+	imagePullEventLoop *ImagePullStatisticEventLoop
 
 	// imagePullCollectors is a map of [*imagePullCollector] instances for each Pod [types.UID].
 	// Keys are [types.UID] and values are [*imagePullCollector].
@@ -43,11 +47,13 @@ type PodCollector struct {
 // StatisticEventHandler.
 func NewPodCollector(
 	options *options.Options,
-	eh *StatisticEventLoop,
+	statisticEventLoop *PodStatisticEventLoop,
+	imagePullEventLoop *ImagePullStatisticEventLoop,
 ) *PodCollector {
 	return &PodCollector{
 		options:             options,
-		statisticEventLoop:  eh,
+		statisticEventLoop:  statisticEventLoop,
+		imagePullEventLoop:  imagePullEventLoop,
 		imagePullCollectors: &sync.Map{},
 	}
 }
@@ -141,7 +147,7 @@ func (w *PodCollector) addImagePullCollector(
 	clientset *kubernetes.Clientset,
 	pod *corev1.Pod,
 ) {
-	collector := newImagePullCollector(w.options, w.statisticEventLoop, pod)
+	collector := newImagePullCollector(w.options, w.imagePullEventLoop, pod)
 	// Cancel any image pull collectors before removing them from the map
 	if existing, ok := w.imagePullCollectors.Swap(pod.UID, collector); ok {
 		existingCollector, isCollector := existing.(*imagePullCollector)

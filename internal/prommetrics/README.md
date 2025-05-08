@@ -45,19 +45,30 @@ pod_watch_events_total{event_type="DELETED"} 631
 pod_watch_events_total{event_type="MODIFIED"} 2903
 # HELP statistic_event_processing_seconds Time spent processing events in seconds (quarantiles over 10m0s)
 # TYPE statistic_event_processing_seconds summary
-statistic_event_processing_seconds{quantile="0.5"} 0.000189916
-statistic_event_processing_seconds{quantile="0.9"} 0.000973858
-statistic_event_processing_seconds{quantile="0.99"} 0.011810615
-statistic_event_processing_seconds_sum 3.222548297000011
-statistic_event_processing_seconds_count 4999
+statistic_event_processing_seconds{event_loop="image_pull",quantile="0.5"} 0.000206833
+statistic_event_processing_seconds{event_loop="image_pull",quantile="0.9"} 0.000613
+statistic_event_processing_seconds{event_loop="image_pull",quantile="0.99"} 0.001455083
+statistic_event_processing_seconds_sum{event_loop="image_pull"} 0.5102377143
+statistic_event_processing_seconds_count{event_loop="image_pull"} 1275
+statistic_event_processing_seconds{event_loop="pod",quantile="0.5"} 0.000424041
+statistic_event_processing_seconds{event_loop="pod",quantile="0.9"} 0.00112025
+statistic_event_processing_seconds{event_loop="pod",quantile="0.99"} 0.002443083
+statistic_event_processing_seconds_sum{event_loop="pod"} 2.7123105827
+statistic_event_processing_seconds_count{event_loop="pod"} 3724
 # HELP statistic_event_publish_seconds Time spent waiting to publish an event in seconds (quarantiles over 10m0s)
 # TYPE statistic_event_publish_seconds summary
-statistic_event_publish_seconds{quantile="0.5"} 1.0227e-05
-statistic_event_publish_seconds{quantile="0.9"} 1.6264e-05
-statistic_event_publish_seconds{quantile="0.99"} 5.2648e-05
-statistic_event_publish_seconds_sum 0.10300704499999988
-statistic_event_publish_seconds_count 4999
+statistic_event_publish_seconds{event_loop="image_pull",quantile="0.5"} 2.6583e-05
+statistic_event_publish_seconds{event_loop="image_pull",quantile="0.9"} 4.7625e-05
+statistic_event_publish_seconds{event_loop="image_pull",quantile="0.99"} 6.9e-05
+statistic_event_publish_seconds_sum{event_loop="image_pull"} 0.03479350727
+statistic_event_publish_seconds_count{event_loop="image_pull"} 1275
+statistic_event_publish_seconds{event_loop="pod",quantile="0.5"} 1.3875e-05
+statistic_event_publish_seconds{event_loop="pod",quantile="0.9"} 3.85e-05
+statistic_event_publish_seconds{event_loop="pod",quantile="0.99"} 6.15e-05
+statistic_event_publish_seconds_sum{event_loop="pod"} 0.06821353773
+statistic_event_publish_seconds_count{event_loop="pod"} 3724
 # HELP statistic_event_queue_depth Current queue depth of the event queue
 # TYPE statistic_event_queue_depth gauge
-statistic_event_queue_depth 0
+statistic_event_queue_depth{event_loop="image_pull"} 0
+statistic_event_queue_depth{event_loop="pod"} 0
 ```
