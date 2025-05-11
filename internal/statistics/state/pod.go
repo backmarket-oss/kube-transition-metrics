@@ -68,16 +68,13 @@ func NewPodStatistic(now time.Time, pod *corev1.Pod) *PodStatistic {
 }
 
 // Report reports the pod statistic to the given output writer.
-func (s *PodStatistic) Report(output io.Writer) {
-	metrics := zerolog.Dict()
-	metrics.Str("type", "pod")
-	metrics.Str("kube_namespace", s.namespace)
-	metrics.Str("pod_name", s.name)
-	metrics.Dict("pod", s.event())
+func (s *PodStatistic) Report(output io.Writer, pod *corev1.Pod) {
+	logger := s.logger()
 
-	eventLogger := log.Output(output).With().
-		Dict("kube_transition_metrics", metrics).Logger()
-	eventLogger.Log().Msg("")
+	metrics := zerolog.Dict().
+		Func(commonPodLabels(pod)).
+		Dict("pod", s.event())
+	logMetrics(output, "pod", metrics, "")
 
 	initContainers := s.initContainers.Iterator()
 	var previous *ContainerStatistic
@@ -85,10 +82,10 @@ func (s *PodStatistic) Report(output io.Writer) {
 		_, containerStatistics, ok := initContainers.Next()
 		if !ok {
 			// This should never happen as we're checking `.Done()` on the iterator.
-			log.Panic().Msg("init container statistics not found")
+			logger.Panic().Msg("init container statistics not found")
 		}
 
-		containerStatistics.Report(output, s, previous)
+		containerStatistics.Report(output, pod, s, previous)
 		previous = containerStatistics.ContainerStatistic
 	}
 
@@ -97,10 +94,10 @@ func (s *PodStatistic) Report(output io.Writer) {
 		_, containerStatistics, ok := containers.Next()
 		if !ok {
 			// This should never happen as we're checking `.Done()` on the iterator.
-			log.Panic().Msg("container statistics not found")
+			logger.Panic().Msg("container statistics not found")
 		}
 
-		containerStatistics.Report(output, s)
+		containerStatistics.Report(output, pod, s)
 	}
 }
 
@@ -120,8 +117,7 @@ func (s *PodStatistic) Update(now time.Time, pod *corev1.Pod) *PodStatistic {
 		}
 
 		// TODO: include core/v1.ContainersReady and core/v1.DisruptionTarget
-		//nolint:exhaustive
-		switch condition.Type {
+		switch condition.Type { //nolint:exhaustive
 		case corev1.PodScheduled:
 			if s.scheduledTimestamp.IsZero() {
 				s.scheduledTimestamp = condition.LastTransitionTime.Time
