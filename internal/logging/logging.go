@@ -13,6 +13,13 @@ func Configure() {
 	zerolog.DurationFieldUnit = time.Second
 }
 
+// Unconfigure restores zerolog to its default settings.
+func Unconfigure() {
+	zerolog.DurationFieldInteger = true
+	zerolog.DurationFieldUnit = time.Millisecond
+	zerolog.SetGlobalLevel(zerolog.Level(0))
+}
+
 // SetOptions configures zerolog global settings based on user-configured options.
 func SetOptions(options *options.Options) {
 	zerolog.SetGlobalLevel(options.LogLevel)

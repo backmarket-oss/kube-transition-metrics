@@ -61,7 +61,10 @@ func getKubeconfig(options *options.Options) *rest.Config {
 
 func main() {
 	logging.Configure()
+	defer logging.Unconfigure()
+
 	prommetrics.Register()
+	defer prommetrics.Unregister()
 
 	options := options.Parse()
 	logging.SetOptions(options)
