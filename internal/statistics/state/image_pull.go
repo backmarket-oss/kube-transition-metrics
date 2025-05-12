@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // PodImagePullStatistic holds the statistics for a pod image pull.
@@ -141,4 +142,52 @@ func (s *ContainerImagePullStatistic) Report(output io.Writer, message string) {
 			Dict("kube_transition_metrics", metrics).
 			Logger()
 	logger.Log().Msg(message)
+}
+
+// ImagePullStatistics holds the statistics for image pulls.
+type ImagePullStatistics struct {
+	*immutable.Map[types.UID, *PodImagePullStatistic]
+}
+
+// NewImagePullStatistics creates a new ImagePullStatistics instance.
+func NewImagePullStatistics() *ImagePullStatistics {
+	return &ImagePullStatistics{
+		Map: immutable.NewMap[types.UID, *PodImagePullStatistic](nil),
+	}
+}
+
+// Copy implements [github.com/Izzette/go-safeconcurrency/types.Copyable.Copy].
+func (s *ImagePullStatistics) Copy() *ImagePullStatistics {
+	return snapshot.CopyPtr(s)
+}
+
+// Get returns the image pull statistic for the pod with the given UID, if it exists.
+func (s *ImagePullStatistics) Get(uid types.UID) (*PodImagePullStatistic, bool) {
+	return s.Map.Get(uid)
+}
+
+// Set updates the image pull statistic for the pod with the given UID, or adds it if it doesn't exist.
+// Set returns a new instance of the ImagePullStatistics with the updated fields.
+func (s *ImagePullStatistics) Set(
+	uid types.UID,
+	imagePullStatistic *PodImagePullStatistic,
+) *ImagePullStatistics {
+	s = s.Copy()
+	s.Map = s.Map.Set(uid, imagePullStatistic)
+
+	return s
+}
+
+// Delete deletes the image pull statistic for the pod with the given UID, if it exists.
+// Delete returns a new instance of the ImagePullStatistics with the updated fields.
+func (s *ImagePullStatistics) Delete(uid types.UID) *ImagePullStatistics {
+	s = s.Copy()
+	s.Map = s.Map.Delete(uid)
+
+	return s
+}
+
+// Len returns the number of image pull statistics.
+func (s *ImagePullStatistics) Len() int {
+	return s.Map.Len()
 }
