@@ -2,6 +2,7 @@ package state
 
 import (
 	"io"
+	"iter"
 	"time"
 
 	"github.com/Izzette/go-safeconcurrency/eventloop/snapshot"
@@ -42,6 +43,52 @@ func NewPodImagePullStatistic(pod *corev1.Pod) *PodImagePullStatistic {
 // Copy implements [github.com/Izzette/go-safeconcurrency/types.Copyable.Copy].
 func (s *PodImagePullStatistic) Copy() *PodImagePullStatistic {
 	return snapshot.CopyPtr(s)
+}
+
+// Containers return an iterator over the containers in the pod.
+func (s *PodImagePullStatistic) Containers() iter.Seq2[string, *ContainerImagePullStatistic] {
+	return s.EachContainer
+}
+
+// EachContainer is an [iter.Seq2] for container names (string) and their corresponding statistics
+// [*ContainerImagePullStatistic].
+func (s *PodImagePullStatistic) EachContainer(yield func(string, *ContainerImagePullStatistic) bool) {
+	containers := s.containers.Iterator()
+	for !containers.Done() {
+		containerName, container, ok := containers.Next()
+		if !ok {
+			// This should never happen as we're checking `.Done()` on the iterator.
+			log.Panic().Msg("container image pull statistics not found")
+		}
+
+		if !yield(containerName, container) {
+			break
+		}
+	}
+}
+
+// MapContainers applies the provided function to each container in the pod and returns a new instance of the
+// [*PodImagePullStatistic] with the updated container statistics.
+// The provided function should return a new instance of the ContainerImagePullStatistic and a boolean indicating
+// whether to continue iterating over the containers.
+func (s *PodImagePullStatistic) MapContainers(
+	apply func(string, *ContainerImagePullStatistic) (*ContainerImagePullStatistic, bool),
+) *PodImagePullStatistic {
+	// Shallow copy the map to avoid modifying the original instance.
+	s = s.Copy()
+
+	for containerName, container := range s.Containers() {
+		newContainer, cont := apply(containerName, container)
+		if newContainer != container {
+			s.containers = s.containers.Set(containerName, newContainer)
+		}
+
+		if !cont {
+			break
+		}
+	}
+
+	return s
 }
 
 // Get returns the image pull statistic for the container with the given name, if it exists.
@@ -86,6 +133,11 @@ func NewContainerImagePullStatistic(pod *corev1.Pod, container corev1.Container)
 // Copy implements [github.com/Izzette/go-safeconcurrency/types.Copyable.Copy].
 func (s *ContainerImagePullStatistic) Copy() *ContainerImagePullStatistic {
 	return snapshot.CopyPtr(s)
+}
+
+// Partial indicates if the image pull statistic does not contain all the metrics for a complete image pull lifecycle.
+func (s *ContainerImagePullStatistic) Partial() bool {
+	return s.startedTimestamp.IsZero() || s.finishedTimestamp.IsZero()
 }
 
 // Update updates the image pull statistic with the provided event.
@@ -134,6 +186,7 @@ func (s *ContainerImagePullStatistic) Report(output io.Writer, message string) {
 	metrics.Dict("image_pull", imagePullMetrics)
 	metrics.Str("kube_namespace", s.podNamespace)
 	metrics.Str("pod_name", s.podName)
+	metrics.Bool("partial", s.Partial())
 
 	logger :=
 		log.
