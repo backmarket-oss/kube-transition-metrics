@@ -113,7 +113,7 @@ A complete non-init container record:
     "type": "container",
     "kube_namespace": "default",
     "pod_name": "flat-earth",
-    "container_name": "consipire",
+    "container_name": "conspire",
     "short_image": "nginx",
     "image_name": "docker.io/library/nginx",
     "image_tag": "latest",
