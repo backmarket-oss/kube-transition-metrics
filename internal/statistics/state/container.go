@@ -139,6 +139,9 @@ func (cs *InitContainerStatistic) Report(
 ) {
 	logger := cs.logger(podStatistic.logger())
 	container := findContainer(cs.name, pod.Spec.InitContainers)
+	if container == nil {
+		logger.Panic().Msg("container not found")
+	}
 
 	metrics := zerolog.Dict().
 		Func(commonPodLabels(pod)).
