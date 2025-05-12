@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.2
 
 require (
-	github.com/Izzette/go-safeconcurrency v0.5.0
+	github.com/Izzette/go-safeconcurrency v0.5.1
 	github.com/benbjohnson/immutable v0.4.3
 	github.com/prometheus/client_golang v1.22.0
 	github.com/rs/zerolog v1.34.0
