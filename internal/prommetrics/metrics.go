@@ -84,29 +84,32 @@ var (
 		},
 	)
 	// StatisticEventPublish tracks the time spent waiting to publish an event and the number of events published.
-	StatisticEventPublish = prometheus.NewSummary(
+	StatisticEventPublish = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name: "statistic_event_publish_seconds",
 			Help: fmt.Sprintf("Time spent waiting to publish an event in seconds (quarantiles over %v)", prometheus.DefMaxAge),
 
 			Objectives: summaryObjectives,
 		},
+		[]string{"event_loop"},
 	)
 	// StatisticEventQueueDepth tracks the current queue depth of the event queue.
-	StatisticEventQueueDepth = prometheus.NewGauge(
+	StatisticEventQueueDepth = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "statistic_event_queue_depth",
 			Help: "Current queue depth of the event queue",
 		},
+		[]string{"event_loop"},
 	)
 	// StatisticEventProcessing tracks the time spent processing events and the number of events processed.
-	StatisticEventProcessing = prometheus.NewSummary(
+	StatisticEventProcessing = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name: "statistic_event_processing_seconds",
 			Help: "Time spent processing events in seconds (quarantiles over " + prometheus.DefMaxAge.String() + ")",
 
 			Objectives: summaryObjectives,
 		},
+		[]string{"event_loop"},
 	)
 )
 
