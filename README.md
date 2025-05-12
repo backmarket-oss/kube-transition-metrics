@@ -113,8 +113,11 @@ A complete non-init container record:
     "type": "container",
     "kube_namespace": "default",
     "pod_name": "flat-earth",
+    "container_name": "conspire",
+    "short_image": "nginx",
+    "image_name": "docker.io/library/nginx",
+    "image_tag": "latest",
     "container": {
-      "name": "consipire",
       "init_container": false,
       "initialized_to_running_seconds": 2.785652,
       "running_timestamp": "2024-06-08T11:14:02+02:00",
@@ -136,8 +139,11 @@ A complete init container record:
     "type": "container",
     "kube_namespace": "default",
     "pod_name": "flat-earth",
+    "container_name": "subliminal-messaging",
+    "short_image": "nginx",
+    "image_name": "docker.io/library/nginx",
+    "image_tag": "latest",
     "container": {
-      "name": "subliminal-messaging",
       "init_container": true,
       "ready_timestamp": "2024-06-08T11:14:01+02:00"
     }
@@ -151,15 +157,18 @@ An image pull record:
 {
   "kube_transition_metrics": {
     "type": "image_pull",
+    "kube_namespace": "default",
+    "pod_name": "flat-earth",
+    "container_name": "conspire",
+    "short_image": "nginx",
+    "image_name": "docker.io/library/nginx",
+    "image_tag": "latest"
     "image_pull": {
-      "container_name": "conspire",
       "already_present": true,
       "started_timestamp": "2024-06-08T11:14:01+02:00",
       "finished_timestamp": "2024-06-08T11:14:01+02:00",
       "duration_seconds": 0
     },
-    "kube_namespace": "default",
-    "pod_name": "flat-earth"
   },
   "time": "2024-06-08T11:14:01+02:00",
   "message": "Container image \"docker.io/library/nginx:latest\" already present on machine"

@@ -29,7 +29,7 @@ func TestNewImagePullStatistic(t *testing.T) {
 	}
 
 	// Call the function
-	imagePullStat := NewContainerImagePullStatistic(pod, container)
+	imagePullStat := NewContainerImagePullStatistic(pod, false, container)
 
 	// Assertions
 	assert.Equal(t, pod.Namespace, imagePullStat.podNamespace, "Pod namespace does not match")
@@ -53,9 +53,22 @@ func TestImagePullStatisticLog(t *testing.T) {
 		startedTimestamp:  now,
 		finishedTimestamp: now.Add(5 * time.Second),
 	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      imagePullStat.podName,
+			Namespace: imagePullStat.podNamespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: imagePullStat.containerName,
+				},
+			},
+		},
+	}
 
 	// Call the log function
-	imagePullStat.Report(buf, "Test log message")
+	imagePullStat.Report(buf, pod, "Test log message")
 
 	// Check if the output contains expected values
 	output := buf.String()
@@ -64,7 +77,6 @@ func TestImagePullStatisticLog(t *testing.T) {
 		"kube_transition_metrics": map[string]interface{}{
 			"type": "image_pull",
 			"image_pull": map[string]interface{}{
-				"container_name":     "test-container",
 				"already_present":    true,
 				"started_timestamp":  imagePullStat.startedTimestamp.Format(time.RFC3339),
 				"finished_timestamp": imagePullStat.finishedTimestamp.Format(time.RFC3339),
@@ -76,6 +88,7 @@ func TestImagePullStatisticLog(t *testing.T) {
 			"kube_namespace": "test-namespace",
 			"partial":        false,
 			"pod_name":       "test-pod",
+			"container_name": "test-container",
 		},
 		"message": "Test log message",
 	}

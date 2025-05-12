@@ -103,11 +103,11 @@ func (el *PodStatisticEventLoop) PodUpdate(
 // API.
 func (el *PodStatisticEventLoop) PodDelete(
 	ctx context.Context,
-	podUID types.UID,
+	pod *corev1.Pod,
 ) (safeconcurrencytypes.GenerationID, error) {
 	return el.Send(ctx, &podDeleteEvent{
 		options: el.options,
-		podUID:  podUID,
+		pod:     pod,
 	})
 }
 
@@ -213,11 +213,11 @@ func (el *ImagePullStatisticEventLoop) ImagePullUpdate(
 // tracked.
 func (el *ImagePullStatisticEventLoop) ImagePullDelete(
 	ctx context.Context,
-	podUID types.UID,
+	pod *corev1.Pod,
 ) (safeconcurrencytypes.GenerationID, error) {
 	return el.Send(ctx, &deleteImagePullEvent{
 		options: el.options,
-		podUID:  podUID,
+		pod:     pod,
 	})
 }
 
@@ -296,7 +296,7 @@ func (e *podUpdateEvent) Dispatch(
 
 	// Emit the pod and container statistics for the pod.
 	if e.options.EmitPartialStatistics || !statistic.Partial() {
-		statistic.Report(e.output)
+		statistic.Report(e.output, e.pod)
 	}
 
 	return podStatistics
@@ -305,7 +305,7 @@ func (e *podUpdateEvent) Dispatch(
 // podDeleteEvent is used to delete the pod statistic for a pod after it has been deleted from the Kubernetes API.
 type podDeleteEvent struct {
 	options *options.Options
-	podUID  types.UID
+	pod     *corev1.Pod
 	output  io.Writer
 }
 
@@ -314,17 +314,17 @@ func (e *podDeleteEvent) Dispatch(
 	_ safeconcurrencytypes.GenerationID,
 	podStatistics *state.PodStatistics,
 ) *state.PodStatistics {
-	statistic, ok := podStatistics.Get(e.podUID)
+	statistic, ok := podStatistics.Get(e.pod.UID)
 	if !ok {
 		return podStatistics
 	}
 
 	// Emit statistics for pods that are deleted before they become Ready.
 	if statistic.Partial() {
-		statistic.Report(e.output)
+		statistic.Report(e.output, e.pod)
 	}
 
-	return podStatistics.Delete(e.podUID)
+	return podStatistics.Delete(e.pod.UID)
 }
 
 // resyncEvent is used to resync the event loop if the Kubernetes Watch API times out, and events are lost.
@@ -361,8 +361,17 @@ func (e *resyncEvent) Dispatch(
 			newPodStatistics = newPodStatistics.Set(uid, statistic)
 		} else if statistic.Partial() {
 			// This pod was previously tracked, but is not in the resync set (not in cluster), we can stop tracking it.
-			// We need to emit partial statistics for this pod if it has not been fully initialized before untracking it.
-			statistic.Report(e.output)
+
+			// TODO(Izzette): We no longer have the pod object, so we can't emit the statistics.
+			// We should probably be storing the last pod object in the pod statistic, so we can emit the statistics in this
+			// case.
+			//
+			// statistic.Report(e.output, &corev1.Pod{})
+
+			// TODO(Izzette): it would be cool to use the pod statistic logger to at least include the pod name and namespace.
+			log.Warn().
+				Str("pod_uid", string(uid)).
+				Msg("Pod was previously tracked, but is not in the resync set (not in cluster), statistics have been lost")
 		}
 	}
 	podStatistics = newPodStatistics
@@ -423,7 +432,7 @@ func (e *imagePullUpdateEvent) Dispatch(
 	containerImagePullStatistic = containerImagePullStatistic.Update(e.k8sEvent)
 
 	if e.options.EmitPartialStatistics || !containerImagePullStatistic.Partial() {
-		containerImagePullStatistic.Report(e.output, e.k8sEvent.Message)
+		containerImagePullStatistic.Report(e.output, e.pod, e.k8sEvent.Message)
 	}
 
 	podImagePullStatistic = podImagePullStatistic.Set(containerImagePullStatistic)
@@ -457,7 +466,7 @@ func (e *imagePullUpdateEvent) logWith(ev *zerolog.Event) *zerolog.Event {
 // Kubernetes API.
 type deleteImagePullEvent struct {
 	options *options.Options
-	podUID  types.UID
+	pod     *corev1.Pod
 	output  io.Writer
 }
 
@@ -466,19 +475,19 @@ func (e *deleteImagePullEvent) Dispatch(
 	_ safeconcurrencytypes.GenerationID,
 	statisticState *state.ImagePullStatistics,
 ) *state.ImagePullStatistics {
-	imagePullStatistic, ok := statisticState.Get(e.podUID)
+	imagePullStatistic, ok := statisticState.Get(e.pod.UID)
 	if !ok {
-		log.Trace().Str("pod_uid", string(e.podUID)).Msg("Pod image pull statistic not found for deletion")
+		log.Trace().Str("pod_uid", string(e.pod.UID)).Msg("Pod image pull statistic not found for deletion")
 
 		return statisticState
 	}
 	for _, container := range imagePullStatistic.Containers() {
 		if container.Partial() {
-			container.Report(e.output, "premature deletion of pod")
+			container.Report(e.output, e.pod, "premature deletion of pod")
 		}
 	}
 
-	return statisticState.Delete(e.podUID)
+	return statisticState.Delete(e.pod.UID)
 }
 
 // fieldPathContainerRegex is used to parse the container name from the fieldRef of the Kubernetes Event.
