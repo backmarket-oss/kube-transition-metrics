@@ -31,6 +31,122 @@
           "description": "The name of the Kubernetes Pod to which metrics pertain",
           "type": "string"
         },
+        "kube_node": {
+          "title": "Kubernetes Node name",
+          "description": "The name of the Kubernetes Node running the Pod.",
+          "type": "string"
+        },
+        "kube_qos": {
+          "title": "Kubernetes QOS class",
+          "description": "The Kubernetes QOS class of the pod",
+          "type": "string",
+          "enum": ["Guaranteed", "Burstable", "BestEffort"]
+        },
+        "kube_priority_class": {
+          "title": "Kubernetes Priority class",
+          "description": "The Kubernetes Priority class of the Pod.",
+          "type": "string"
+        },
+        "kube_runtime_class": {
+          "title": "Kubernetes Runtime class",
+          "description": "The Kubernetes Runtime class of the Pod.",
+          "type": "string"
+        },
+        "kube_ownerref_kind": {
+          "title": "Kubernetes Owner Reference Kind",
+          "description": "The Kubernetes controller Kind of the Pod.",
+          "type": "string"
+        },
+        "kube_ownerref_name": {
+          "title": "Kubernetes Owner Reference Name",
+          "description": "The Kubernetes controller Name of the Pod.",
+          "type": "string"
+        },
+        "kube_cronjob": {
+          "title": "Kubernetes CronJob",
+          "description": "The Kubernetes CronJob of the pod (currently unsupported).",
+          "type": "string"
+        },
+        "kube_daemon_set": {
+          "title": "Kubernetes DaemonSet",
+          "description": "The Kubernetes DaemonSet of the pod.",
+          "type": "string"
+        },
+        "kube_deployment": {
+          "title": "Kubernetes Deployment",
+          "description": "The Kubernetes Deployment of the pod (currently unsupported).",
+          "type": "string"
+        },
+        "kube_job": {
+          "title": "Kubernetes Job",
+          "description": "The Kubernetes Job of the pod.",
+          "type": "string"
+        },
+        "kube_replica_set": {
+          "title": "Kubernetes ReplicaSet",
+          "description": "The Kubernetes ReplicaSet of the pod.",
+          "type": "string"
+        },
+        "kube_statefulset": {
+          "title": "Kubernetes StatefulSet",
+          "description": "The Kubernetes StatefulSet of the pod.",
+          "type": "string"
+        },
+        "kube_service": {
+          "title": "Kubernetes Service",
+          "description": "The Kubernetes Service pointing to the pod (currently unsupported).",
+          "type": "string"
+        },
+        "kube_app_component": {
+          "title": "Kubernetes App Component",
+          "description": "The Kubernetes App Component of the pod (app.kubernetes.io/component).",
+          "type": "string"
+        },
+        "kube_app_instance": {
+          "title": "Kubernetes App Instance",
+          "description": "The Kubernetes App Instance of the pod (app.kubernetes.io/instance).",
+          "type": "string"
+        },
+        "kube_app_managed_by": {
+          "title": "Kubernetes App Managed By",
+          "description": "The Kubernetes App Managed By of the pod (app.kubernetes.io/managed-by).",
+          "type": "string"
+        },
+        "kube_app_name": {
+          "title": "Kubernetes App Name",
+          "description": "The Kubernetes App Name of the pod (app.kubernetes.io/name).",
+          "type": "string"
+        },
+        "kube_app_part_of": {
+          "title": "Kubernetes App Part Of",
+          "description": "The Kubernetes App Part Of of the pod (app.kubernetes.io/part-of).",
+          "type": "string"
+        },
+        "kube_app_version": {
+          "title": "Kubernetes App Version",
+          "description": "The Kubernetes App Version of the pod (app.kubernetes.io/version).",
+          "type": "string"
+        },
+        "container_name": {
+          "title": "Container name",
+          "description": "The name of the container to which metrics pertain, only set for container and image_pull metrics types.",
+          "type": "string"
+        },
+        "short_image": {
+          "title": "Short Image",
+          "description": "The short image name for the container image (the last path component of the repository), only set for container and image_pull metrics types.",
+          "type": "string"
+        },
+        "image_name": {
+          "title": "Image name",
+          "description": "The name of the repository for the container image (everyting before tag and digest), only set for container and image_pull metrics types.",
+          "type": "string"
+        },
+        "image_tag": {
+          "title": "Image tag",
+          "description": "The tag or digest of the container image, only set for container and image_pull metrics types.",
+          "type": "string"
+        },
         "pod": {
           "title": "Pod Metrics",
           "description": "Included if kube_transition_metric_type is equal to \"pod\".",
@@ -94,11 +210,6 @@
           "description": "Included if kube_transition_metric_type is equal to \"container\".",
           "type": "object",
           "properties": {
-            "name": {
-              "title": "Container name",
-              "description": "The name of the container to which metrics pertain",
-              "type": "string"
-            },
             "init_container": {
               "title": "Init Container",
               "description": "True if the container is an init container, otherwise false.",
@@ -149,18 +260,13 @@
             }
           },
           "additionalProperties": false,
-          "required": ["name", "init_container"]
+          "required": ["init_container"]
         },
         "image_pull": {
           "title": "Image Pull Metrics",
           "description": "Included if kube_transition_metric_type is equal to \"image_pull\". Note that these metrics are only emitted in the event that an image pull occurs, if imagePullPolicy is set to IfNotPresent this will only occur if the image is not already present on the node.",
           "type": "object",
           "properties": {
-            "container_name": {
-              "title": "Container name",
-              "description": "The name of the container which initiated the image pull",
-              "type": "string"
-            },
             "already_present": {
               "title": "Already Present",
               "description": "true if the image was already present on the machine, otherwise false.",
@@ -185,7 +291,7 @@
             }
           },
           "additionalProperties": false,
-          "required": ["container_name", "started_timestamp"]
+          "required": ["started_timestamp"]
         }
       },
       "additionalProperties": false,

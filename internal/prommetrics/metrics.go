@@ -111,12 +111,8 @@ var (
 		},
 		[]string{"event_loop"},
 	)
-)
 
-// Register registers the prometheus Collectors (metrics) exported by this
-// package.
-func Register() {
-	prometheus.MustRegister(
+	collectors = []prometheus.Collector{
 		PodCollectorErrors,
 		PodCollectorRestarts,
 		PodWatchEvents,
@@ -129,5 +125,19 @@ func Register() {
 		StatisticEventPublish,
 		StatisticEventQueueDepth,
 		StatisticEventProcessing,
-	)
+	}
+)
+
+// Register registers the prometheus Collectors (metrics) exported by this
+// package.
+func Register() {
+	prometheus.MustRegister(collectors...)
+}
+
+// Unregister unregisters the prometheus Collectors (metrics) exported by this
+// package.
+func Unregister() {
+	for _, collector := range collectors {
+		prometheus.Unregister(collector)
+	}
 }

@@ -196,30 +196,37 @@ func (s *PodStatistic) MapContainerStatistics(
 }
 
 // Report reports the pod statistic to the given output writer.
-// It does not report container statistics.
-func (s *PodStatistic) Report(output io.Writer) {
-	metrics := zerolog.Dict()
-	metrics.Str("type", "pod")
-	metrics.Str("kube_namespace", s.namespace)
-	metrics.Str("pod_name", s.name)
-	metrics.Bool("partial", s.Partial())
-	metrics.Dict("pod", s.event())
+func (s *PodStatistic) Report(output io.Writer, pod *corev1.Pod) {
+	logger := s.logger()
 
-	eventLogger := log.Output(output).With().
-		Dict("kube_transition_metrics", metrics).Logger()
-	eventLogger.Log().Send()
+	metrics := zerolog.Dict().
+		Bool("partial", s.Partial()).
+		Func(commonPodLabels(pod)).
+		Dict("pod", s.event())
+	logMetrics(output, "pod", metrics, "")
 
-	// Emit the non-init container statistics for the pod.
+	initContainers := s.initContainers.Iterator()
 	var previous *InitContainerStatistic
-	for _, container := range s.InitContainerStatistics() {
-		container.Report(output, s, previous)
+	for !initContainers.Done() {
+		_, containerStatistics, ok := initContainers.Next()
+		if !ok {
+			// This should never happen as we're checking `.Done()` on the iterator.
+			logger.Panic().Msg("init container statistics not found")
+		}
 
-		previous = container
+		containerStatistics.Report(output, pod, s, previous)
+		previous = containerStatistics
 	}
 
-	// Emit the container statistics for the pod.
-	for _, container := range s.ContainerStatistics() {
-		container.Report(output, s)
+	containers := s.containers.Iterator()
+	for !containers.Done() {
+		_, containerStatistics, ok := containers.Next()
+		if !ok {
+			// This should never happen as we're checking `.Done()` on the iterator.
+			logger.Panic().Msg("container statistics not found")
+		}
+
+		containerStatistics.Report(output, pod, s)
 	}
 }
 
@@ -239,8 +246,7 @@ func (s *PodStatistic) Update(now time.Time, pod *corev1.Pod) *PodStatistic {
 		}
 
 		// TODO: include core/v1.ContainersReady and core/v1.DisruptionTarget
-		//nolint:exhaustive
-		switch condition.Type {
+		switch condition.Type { //nolint:exhaustive
 		case corev1.PodScheduled:
 			if s.scheduledTimestamp.IsZero() {
 				s.scheduledTimestamp = condition.LastTransitionTime.Time

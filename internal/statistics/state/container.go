@@ -6,7 +6,6 @@ import (
 
 	"github.com/Izzette/go-safeconcurrency/eventloop/snapshot"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -48,8 +47,6 @@ func (cs *ContainerStatistic) logger(logger zerolog.Logger) zerolog.Logger {
 
 // event appends the container statistics to the event.
 func (cs *ContainerStatistic) event(event *zerolog.Event) {
-	event.Str("name", cs.name)
-
 	if !cs.runningTimestamp.IsZero() {
 		event.Time("running_timestamp", cs.runningTimestamp)
 	}
@@ -85,27 +82,24 @@ func (cs *ContainerStatistic) logContainerStatus(pod *PodStatistic, status corev
 
 	switch {
 	case status.State.Waiting != nil:
-		logger := logger.With().
+		logger.Debug().
 			Str("container_state", "Waiting").
 			Str("waiting_reason", status.State.Waiting.Reason).
 			Str("waiting_message", status.State.Waiting.Message).
-			Logger()
-		logger.Debug().Msg("Container is Waiting.")
+			Msg("Container is Waiting.")
 	case status.State.Running != nil:
-		logger := logger.With().
+		logger.Debug().
 			Str("container_state", "Running").
 			Str("started_at", status.State.Running.StartedAt.String()).
-			Logger()
-		logger.Debug().Msg("Container is Running.")
+			Msg("Container is Running.")
 	case status.State.Terminated != nil:
-		logger := logger.With().
+		logger.Debug().
 			Str("container_state", "Terminated").
 			Str("terminated_reason", status.State.Terminated.Reason).
 			Str("terminated_message", status.State.Terminated.Message).
 			Int32("exit_code", status.State.Terminated.ExitCode).
 			Int32("signal", status.State.Terminated.Signal).
-			Logger()
-		logger.Debug().Msg("Container is Terminated.")
+			Msg("Container is Terminated.")
 	}
 }
 
@@ -142,14 +136,25 @@ type InitContainerStatistic struct {
 }
 
 // Report reports the container statistic to the output writer.
-func (cs *InitContainerStatistic) Report(output io.Writer, pod *PodStatistic, previous *InitContainerStatistic) {
-	metrics := zerolog.Dict()
+func (cs *InitContainerStatistic) Report(
+	output io.Writer,
+	pod *corev1.Pod,
+	podStatistic *PodStatistic,
+	previous *InitContainerStatistic,
+) {
+	logger := cs.logger(podStatistic.logger())
+	container := findContainer(cs.name, pod.Spec.InitContainers)
+	if container == nil {
+		logger.Panic().Msg("container not found")
+	}
 
-	containerMetrics(metrics, pod)
-	metrics.Bool("partial", cs.Partial())
-	metrics.Dict("container", cs.event(previous))
+	metrics := zerolog.Dict().
+		Bool("partial", cs.Partial()).
+		Func(commonPodLabels(pod)).
+		Func(commonContainerLabels(&logger, container)).
+		Dict("container", cs.event(previous))
 
-	logContainerMetrics(output, metrics)
+	logMetrics(output, "container", metrics, "")
 }
 
 // Update updates the init container statistic based on the latest Kubernetes container status.
@@ -186,14 +191,20 @@ type NonInitContainerStatistic struct {
 }
 
 // Report reports the container statistic to the output writer.
-func (cs *NonInitContainerStatistic) Report(output io.Writer, pod *PodStatistic) {
-	metrics := zerolog.Dict()
+func (cs *NonInitContainerStatistic) Report(output io.Writer, pod *corev1.Pod, podStatistic *PodStatistic) {
+	logger := cs.logger(podStatistic.logger())
+	container := findContainer(cs.name, pod.Spec.Containers)
+	if container == nil {
+		logger.Panic().Msg("container not found")
+	}
 
-	containerMetrics(metrics, pod)
-	metrics.Bool("partial", cs.Partial())
-	metrics.Dict("container", cs.event(pod))
+	metrics := zerolog.Dict().
+		Bool("partial", cs.Partial()).
+		Func(commonPodLabels(pod)).
+		Func(commonContainerLabels(&logger, container)).
+		Dict("container", cs.event(podStatistic))
 
-	logContainerMetrics(output, metrics)
+	logMetrics(output, "container", metrics, "")
 }
 
 // Update updates the non-init container statistic based on the latest Kubernetes container status.
@@ -223,19 +234,4 @@ func (cs *NonInitContainerStatistic) event(pod *PodStatistic) *zerolog.Event {
 	cs.ContainerStatistic.event(event)
 
 	return event
-}
-
-// containerMetrics appends the generic container metrics to the event.
-func containerMetrics(metrics *zerolog.Event, pod *PodStatistic) {
-	metrics.Str("type", "container")
-	metrics.Str("kube_namespace", pod.namespace)
-	metrics.Str("pod_name", pod.name)
-}
-
-// logContainerMetrics writes the container metrics to the output writer.
-func logContainerMetrics(output io.Writer, metrics *zerolog.Event) {
-	eventLogger := log.Output(output).With().
-		Dict("kube_transition_metrics", metrics).
-		Logger()
-	eventLogger.Log().Msg("")
 }

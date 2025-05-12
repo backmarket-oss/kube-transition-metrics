@@ -131,7 +131,7 @@ func (w *PodCollector) handlePod(
 			w.cancelImagePullCollector(pod.UID, "pod already running")
 		}
 	case watch.Deleted:
-		if _, err := w.statisticEventLoop.PodDelete(context.TODO(), pod.UID); err != nil {
+		if _, err := w.statisticEventLoop.PodDelete(context.TODO(), pod); err != nil {
 			logger.Error().Err(err).Msg("Error publishing PodDelete event")
 			prommetrics.PodCollectorErrors.Inc()
 		}

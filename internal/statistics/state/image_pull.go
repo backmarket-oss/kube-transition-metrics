@@ -27,10 +27,10 @@ type PodImagePullStatistic struct {
 func NewPodImagePullStatistic(pod *corev1.Pod) *PodImagePullStatistic {
 	containers := immutable.NewMapBuilder[string, *ContainerImagePullStatistic](nil)
 	for _, c := range pod.Spec.InitContainers {
-		containers.Set(c.Name, NewContainerImagePullStatistic(pod, c))
+		containers.Set(c.Name, NewContainerImagePullStatistic(pod, true, c))
 	}
 	for _, c := range pod.Spec.Containers {
-		containers.Set(c.Name, NewContainerImagePullStatistic(pod, c))
+		containers.Set(c.Name, NewContainerImagePullStatistic(pod, false, c))
 	}
 
 	return &PodImagePullStatistic{
@@ -114,6 +114,7 @@ type ContainerImagePullStatistic struct {
 	podNamespace  string
 	podName       string
 	containerName string
+	initContainer bool
 
 	alreadyPresent    bool
 	startedTimestamp  time.Time
@@ -122,11 +123,16 @@ type ContainerImagePullStatistic struct {
 
 // NewContainerImagePullStatistic creates a new ContainerImagePullStatistic instance.
 // The provided pod and container are used to populate the podNamespace, podName, and containerName fields.
-func NewContainerImagePullStatistic(pod *corev1.Pod, container corev1.Container) *ContainerImagePullStatistic {
+func NewContainerImagePullStatistic(
+	pod *corev1.Pod,
+	initContainer bool,
+	container corev1.Container,
+) *ContainerImagePullStatistic {
 	return &ContainerImagePullStatistic{
 		podNamespace:  pod.Namespace,
 		podName:       pod.Name,
 		containerName: container.Name,
+		initContainer: initContainer,
 	}
 }
 
@@ -166,35 +172,51 @@ func (s *ContainerImagePullStatistic) Update(event *corev1.Event) *ContainerImag
 }
 
 // Report logs the image pull statistic to the provided output writer.
-func (s *ContainerImagePullStatistic) Report(output io.Writer, message string) {
-	imagePullMetrics := zerolog.Dict()
+func (s *ContainerImagePullStatistic) Report(output io.Writer, pod *corev1.Pod, message string) {
+	logger := s.logger()
 
-	imagePullMetrics.Str("container_name", s.containerName)
-	imagePullMetrics.Bool("already_present", s.alreadyPresent)
+	var container *corev1.Container
+	if s.initContainer {
+		container = findContainer(s.containerName, pod.Spec.InitContainers)
+	} else {
+		container = findContainer(s.containerName, pod.Spec.Containers)
+	}
+	if container == nil {
+		logger.Panic().Msg("container not found")
+	}
+
+	metrics := zerolog.Dict().
+		Bool("partial", s.Partial()).
+		Func(commonPodLabels(pod)).
+		Func(commonContainerLabels(&logger, container)).
+		Dict("image_pull", s.event())
+	logMetrics(output, "image_pull", metrics, message)
+}
+
+// event returns a zerolog event with the image pull statistics.
+func (s *ContainerImagePullStatistic) event() *zerolog.Event {
+	event := zerolog.Dict()
+	event.Bool("already_present", s.alreadyPresent)
 	if !s.startedTimestamp.IsZero() {
-		imagePullMetrics.Time("started_timestamp", s.startedTimestamp)
+		event.Time("started_timestamp", s.startedTimestamp)
 	}
 	if !s.finishedTimestamp.IsZero() {
-		imagePullMetrics.Time("finished_timestamp", s.finishedTimestamp)
+		event.Time("finished_timestamp", s.finishedTimestamp)
 		if !s.startedTimestamp.IsZero() {
-			imagePullMetrics.Dur("duration_seconds", s.finishedTimestamp.Sub(s.startedTimestamp))
+			event.Dur("duration_seconds", s.finishedTimestamp.Sub(s.startedTimestamp))
 		}
 	}
 
-	metrics := zerolog.Dict()
-	metrics.Str("type", "image_pull")
-	metrics.Dict("image_pull", imagePullMetrics)
-	metrics.Str("kube_namespace", s.podNamespace)
-	metrics.Str("pod_name", s.podName)
-	metrics.Bool("partial", s.Partial())
+	return event
+}
 
-	logger :=
-		log.
-			Output(output).
-			With().
-			Dict("kube_transition_metrics", metrics).
-			Logger()
-	logger.Log().Msg(message)
+// logger returns a logger for the container image pull statistic.
+func (s *ContainerImagePullStatistic) logger() zerolog.Logger {
+	return log.With().
+		Str("kube_namespace", s.podNamespace).
+		Str("pod_name", s.podName).
+		Str("container_name", s.containerName).
+		Logger()
 }
 
 // ImagePullStatistics holds the statistics for image pulls.
