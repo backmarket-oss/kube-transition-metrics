@@ -231,6 +231,8 @@ func (e *podUpdateEvent) Dispatch(
 
 	if !statistic.Partial() {
 		log.Trace().Str("pod_uid", string(e.pod.UID)).Msg("Pod statistic is already complete, skipping update")
+
+		return podStatistics
 	}
 
 	statistic = statistic.Update(e.eventTime, e.pod)
@@ -355,6 +357,8 @@ func (e *imagePullUpdateEvent) Dispatch(_ safeconcurrencytypes.GenerationID, sta
 			Str("pod_uid", string(e.pod.UID)).
 			Str("container_name", containerName).
 			Msg("Container image pull statistic is already complete, skipping update")
+
+		return statisticState
 	}
 
 	containerImagePullStatistic = containerImagePullStatistic.Update(e.k8sEvent)
