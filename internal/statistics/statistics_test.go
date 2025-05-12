@@ -34,4 +34,8 @@ func TestNewStatisticEventHandler(t *testing.T) {
 	require.NoError(t, err, "Expected no error when sending resync event")
 	assert.NotNil(t, state, "Expected state to be not nil")
 	assert.True(t, state.State().IsBlacklisted("test-uid"), "Expected test-uid to be blacklisted")
+	testUIDStatistic, ok := state.State().Get("test-uid")
+	assert.Nil(t, testUIDStatistic, "Expected test-uid statistic to be nil")
+	assert.False(t, ok, "Expected test-uid statistic to not exist")
+	assert.Zero(t, state.State().Len(), "Expected number of tracked statistics to be 0")
 }
