@@ -90,6 +90,7 @@ A complete pod record:
     "type": "pod",
     "kube_namespace": "default",
     "pod_name": "flat-earth",
+    "partial": false,
     "pod": {
       "creation_timestamp": "2024-06-08T11:14:00+02:00",
       "scheduled_timestamp": "2024-06-08T11:14:00+02:00",
@@ -113,6 +114,7 @@ A complete non-init container record:
     "type": "container",
     "kube_namespace": "default",
     "pod_name": "flat-earth",
+    "partial": false,
     "container": {
       "name": "consipire",
       "init_container": false,
@@ -136,6 +138,7 @@ A complete init container record:
     "type": "container",
     "kube_namespace": "default",
     "pod_name": "flat-earth",
+    "partial": false,
     "container": {
       "name": "subliminal-messaging",
       "init_container": true,
@@ -151,15 +154,16 @@ An image pull record:
 {
   "kube_transition_metrics": {
     "type": "image_pull",
+    "kube_namespace": "default",
+    "pod_name": "flat-earth",
+    "partial": false,
     "image_pull": {
       "container_name": "conspire",
       "already_present": true,
       "started_timestamp": "2024-06-08T11:14:01+02:00",
       "finished_timestamp": "2024-06-08T11:14:01+02:00",
       "duration_seconds": 0
-    },
-    "kube_namespace": "default",
-    "pod_name": "flat-earth"
+    }
   },
   "time": "2024-06-08T11:14:01+02:00",
   "message": "Container image \"docker.io/library/nginx:latest\" already present on machine"
