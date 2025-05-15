@@ -1,5 +1,5 @@
-github.com/Izzette/go-safeconcurrency v0.5.0 h1:lG/bKZV+9ta6uPvPfxZlLSk4hSCpod1CB2cwP+bTvbs=
-github.com/Izzette/go-safeconcurrency v0.5.0/go.mod h1:GkYYgWFFMIapRkNssSK3pJL+rxyWYIqrAqqpvlwGv1o=
+github.com/Izzette/go-safeconcurrency v0.5.1 h1:HoCR+SIVpwn0Dme4roFeRuHFQvzOJbcGpyJgE/y+6Rg=
+github.com/Izzette/go-safeconcurrency v0.5.1/go.mod h1:GkYYgWFFMIapRkNssSK3pJL+rxyWYIqrAqqpvlwGv1o=
 github.com/benbjohnson/immutable v0.4.3 h1:GYHcksoJ9K6HyAUpGxwZURrbTkXA0Dh4otXGqbhdrjA=
 github.com/benbjohnson/immutable v0.4.3/go.mod h1:qJIKKSmdqz1tVzNtst1DZzvaqOU1onk1rc03IeM3Owk=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
