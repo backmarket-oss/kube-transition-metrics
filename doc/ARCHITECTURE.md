@@ -63,7 +63,7 @@ When Pods are added, the `PodCollector` sends an event to the `StatisticEventLoo
 statistic, and launches a new `ImagePullCollector` routine to track Events involving the Pod UID.
 When Pods are modified, the `StatisticEventHandler` receives an event to update the Pod statistic.
 When Pods are deleted , the `StatisticEventHandler` receives an event to remove the `PodStatistic` from tracking,
-than the `ImagePullCollector` routine is canceled for this Pod.
+then the `ImagePullCollector` routine is canceled for this Pod.
 
 ```mermaid
 ---
