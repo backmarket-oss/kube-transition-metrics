@@ -30,8 +30,9 @@ type imagePullCollector struct {
 	// cancelChan is a channel used to signal cancellation of the collector.
 	cancelChan chan string
 
-	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod and image pull
-	statisticEventLoop *StatisticEventLoop
+	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle image pull
+	// statistic states.
+	statisticEventLoop *ImagePullStatisticEventLoop
 
 	// pod is the Kubernetes pod for which image pull events are being collected.
 	pod *corev1.Pod
@@ -40,14 +41,14 @@ type imagePullCollector struct {
 // newImagePullCollector creates (but does not start) a new imagePullCollector instance.
 func newImagePullCollector(
 	options *options.Options,
-	eventHandler *StatisticEventLoop,
+	statisticEventLoop *ImagePullStatisticEventLoop,
 	pod *corev1.Pod,
 ) *imagePullCollector {
 	return &imagePullCollector{
 		options:            options,
 		canceled:           &atomic.Bool{},
 		cancelChan:         make(chan string),
-		statisticEventLoop: eventHandler,
+		statisticEventLoop: statisticEventLoop,
 		pod:                pod,
 	}
 }
@@ -189,6 +190,8 @@ func (c *imagePullCollector) cancel(reason string) {
 	logger := c.logger()
 
 	// Sleep for a bit to allow any pending events to flush.
+	// This is a workaround for the fact that the Kubernetes Watch API does not guarantee that all events related to a pod
+	// will be delivered before the pod is deleted.
 	//
 	// TODO(Izzette): surely there's a better way to do this?
 	time.Sleep(time.Second * time.Duration(c.options.ImagePullCancelDelay))
