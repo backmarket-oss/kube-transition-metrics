@@ -16,7 +16,7 @@ The [`main`](../cmd/kube-transition-metrics/main.go) function starts the
 [`PodCollector`](../internal/statistics/pod_collector.go) and the
 [`StatisticEventLoop`](../internal/statistics/event_loop.go).
 The `PodCollector` gets the list of currently existing pods.
-Any pods created before the `PodCollector` starts up cannot be tracked, as we missed crutial
+Any pods created before the `PodCollector` starts up cannot be tracked, as we missed crucial
 milestones in the pod's lifecycle.
 It calls `PodResync()` on the `StatisticEventLoop` to set the pod UIDs that should not be tracked.
 The `PodCollector` continues to watch all pods from all namespaces, when new pods are created it adds
@@ -29,7 +29,7 @@ When pods are deleted from the cluster, the `PodCollector` will cleanup records 
 
 For new pods, the `PodCollector` also starts an [`imagePullCollector`](../internal/statistics/image_pull_collector.go)
 to watch for Kubernetes events pertaining to the pod.
-Any events the `imagePullCollector` recieves about image pulling, it passes on to the `StatisticEventLoop` by calling
+Any events the `imagePullCollector` receives about image pulling, it passes on to the `StatisticEventLoop` by calling
 `ImagePullUpdate`.
 When all the pods containers have started, the `imagePullCollector` is shut down, and it removes its records from
 the `StatisticEventLoop`.
