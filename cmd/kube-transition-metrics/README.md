@@ -7,6 +7,7 @@ format to stdout.
 
 ```txt
 Usage of kube-transition-metrics:
+      --emit-partial                       Emit partial statistics for pods that have not yet become Ready and image pulls that have not yet completed. When set to false, pods that never become Ready and image pulls that never complete will not be included in the statistics. Partial statistics will always be emitted for pods that are deleted before they become Ready. When set to true, multiple statistics will be emitted for the same pod/image pull. (ADVANCED)
       --image-pull-cancel-delay float      The delay before canceling an image pull routine to ensure events are flushed (ADVANCED) (default 3)
       --kube-watch-max-events int          The Kubernetes Watch maximum events per response (ADVANCED) (default 100)
       --kube-watch-timeout int             The Kubernetes Watch API timeout (ADVANCED) (default 60)
