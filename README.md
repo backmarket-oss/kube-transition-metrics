@@ -213,13 +213,13 @@ An image pull record:
     "container_name": "conspire",
     "short_image": "nginx",
     "image_name": "docker.io/library/nginx",
-    "image_tag": "latest"
+    "image_tag": "latest",
     "image_pull": {
       "already_present": true,
       "started_timestamp": "2024-06-08T11:14:01+02:00",
       "finished_timestamp": "2024-06-08T11:14:01+02:00",
       "duration_seconds": 0
-    },
+    }
   },
   "time": "2024-06-08T11:14:01+02:00",
   "message": "Container image \"docker.io/library/nginx:latest\" already present on machine"
