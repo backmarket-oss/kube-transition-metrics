@@ -11,6 +11,8 @@ import (
 )
 
 func TestNewPodStatistics(t *testing.T) {
+	t.Parallel()
+
 	state := NewPodStatistics([]types.UID{})
 	assert.Equal(t, 0, state.Len(), "Expected length to be 0")
 	pod, ok := state.Get("test-uid")
@@ -19,6 +21,8 @@ func TestNewPodStatistics(t *testing.T) {
 }
 
 func TestPodStatisticsSetAndGet(t *testing.T) {
+	t.Parallel()
+
 	state := NewPodStatistics([]types.UID{})
 	uid := types.UID("test-uid")
 	pod := &corev1.Pod{
@@ -56,6 +60,8 @@ func TestPodStatisticsSetAndGet(t *testing.T) {
 }
 
 func TestPodStatisticsDelete(t *testing.T) {
+	t.Parallel()
+
 	state := NewPodStatistics([]types.UID{})
 	uid := types.UID("test-uid")
 	pod := &corev1.Pod{
@@ -75,6 +81,8 @@ func TestPodStatisticsDelete(t *testing.T) {
 }
 
 func TestPodStatisticsIsBlacklisted(t *testing.T) {
+	t.Parallel()
+
 	uid := types.UID("test-uid")
 	state := NewPodStatistics([]types.UID{uid})
 

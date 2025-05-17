@@ -14,8 +14,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// configureLogging sets up the global logging configuration for the tests.
+// It forbids parallel execution of tests that use this function.
 func configureLogging(t *testing.T) {
 	t.Helper()
+
+	t.Cleanup(func() {
+		logging.Unconfigure()
+	})
 	logging.Configure()
 }
 
@@ -56,7 +62,10 @@ func newTestingPod(created time.Time) *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				{Name: "test-container"},
+				{
+					Name:  "test-container",
+					Image: "test-image",
+				},
 			},
 		},
 		Status: corev1.PodStatus{
@@ -140,7 +149,7 @@ func TestPodStatisticUpdate(t *testing.T) {
 
 	checkBasicPodStatisticFields(t, stat)
 
-	stat.Report(buf)
+	stat.Report(buf, pod)
 	statisticLogs := decodeMetrics(t, buf)
 
 	if !assert.Len(

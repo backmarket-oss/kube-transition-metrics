@@ -224,7 +224,7 @@ func (e *podUpdateEvent) Dispatch(
 	statistic = statistic.Update(e.eventTime, e.pod)
 	podStatistics = podStatistics.Set(e.pod.UID, statistic)
 
-	statistic.Report(e.output)
+	statistic.Report(e.output, e.pod)
 
 	return podStatistics
 }
@@ -311,7 +311,7 @@ func (e *imagePullUpdateEvent) Dispatch(_ safeconcurrencytypes.GenerationID, sta
 		e.logWith(log.Panic()).Msgf("container %#v in image pull statistic not found", containerName)
 	}
 	containerImagePullStatistic = containerImagePullStatistic.Update(e.k8sEvent)
-	containerImagePullStatistic.Report(e.output, e.k8sEvent.Message)
+	containerImagePullStatistic.Report(e.output, e.pod, e.k8sEvent.Message)
 
 	podImagePullStatistic = podImagePullStatistic.Set(containerImagePullStatistic)
 	statisticState = statisticState.SetImagePullStatistic(e.pod.UID, podImagePullStatistic)
