@@ -32,6 +32,11 @@ func (cs *ContainerStatistic) Copy() *ContainerStatistic {
 	return snapshot.CopyPtr(cs)
 }
 
+// Partial indicates if the container statistic does not contain all the metrics for a complete container lifecycle.
+func (cs *ContainerStatistic) Partial() bool {
+	return cs.runningTimestamp.IsZero() || cs.startedTimestamp.IsZero() || cs.readyTimestamp.IsZero()
+}
+
 // logger returns a logger scoped to the container statistic.
 //
 // TODO(Izzette): Replace with [log.Ctx] / [zerolog.Ctx] / [zerolog.Event.Ctx].
@@ -137,10 +142,11 @@ type InitContainerStatistic struct {
 }
 
 // Report reports the container statistic to the output writer.
-func (cs *InitContainerStatistic) Report(output io.Writer, pod *PodStatistic, previous *ContainerStatistic) {
+func (cs *InitContainerStatistic) Report(output io.Writer, pod *PodStatistic, previous *InitContainerStatistic) {
 	metrics := zerolog.Dict()
 
 	containerMetrics(metrics, pod)
+	metrics.Bool("partial", cs.Partial())
 	metrics.Dict("container", cs.event(previous))
 
 	logContainerMetrics(output, metrics)
@@ -163,7 +169,7 @@ func (cs *InitContainerStatistic) Update(
 }
 
 // event returns the event dictionary for the init container statistic.
-func (cs *InitContainerStatistic) event(previous *ContainerStatistic) *zerolog.Event {
+func (cs *InitContainerStatistic) event(previous *InitContainerStatistic) *zerolog.Event {
 	event := zerolog.Dict()
 	event.Bool("init_container", true)
 	if !cs.runningTimestamp.IsZero() && previous != nil && !previous.readyTimestamp.IsZero() {
@@ -184,6 +190,7 @@ func (cs *NonInitContainerStatistic) Report(output io.Writer, pod *PodStatistic)
 	metrics := zerolog.Dict()
 
 	containerMetrics(metrics, pod)
+	metrics.Bool("partial", cs.Partial())
 	metrics.Dict("container", cs.event(pod))
 
 	logContainerMetrics(output, metrics)
