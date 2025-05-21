@@ -1,11 +1,16 @@
-name: Run Go tests and confirm buildable
+---
+name: Go build and test
 
-on: [push]
+on:
+  pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -16,7 +21,16 @@ jobs:
           check-latest: true
 
       - name: Build
-        run: go build -v ./...
+        run: make buildable
 
-      - name: Test
-        run: go test -v ./...
+      - name: Test Unit
+        run: make test-unit
+
+      - name: Run testable examples
+        run: make test-examples
+
+      - name: Benchmark
+        run: make benchmark
+
+      - name: Test flakiness
+        run: make test-flakiness
