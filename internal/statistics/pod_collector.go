@@ -177,9 +177,9 @@ func (w *PodCollector) addImagePullCollector(
 // cancelImagePullCollector cancels and removes the image pull collector for the given pod UID.
 func (w *PodCollector) cancelImagePullCollector(uid types.UID, reason string) {
 	if existing, ok := w.imagePullCollectors.LoadAndDelete(uid); ok {
-		collector, ok := existing.(imagePullCollector)
+		collector, ok := existing.(imagePullCollectorI)
 		if !ok {
-			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
+			log.Panic().Any("value", existing).Msgf("Non-imagePullCollectorI found in imagePullCollectors map")
 		}
 		go collector.cancel(reason)
 	}

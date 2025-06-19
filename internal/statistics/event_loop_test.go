@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/BackMarket-oss/kube-transition-metrics/internal/logging"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics/state"
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/testhelpers"
 	"github.com/Izzette/go-safeconcurrency/eventloop"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -15,14 +15,14 @@ import (
 )
 
 func TestNewStatisticEventLoop(t *testing.T) {
+	testhelpers.ConfigureLogging(t)
+
 	ctx := t.Context()
 
 	options := &options.Options{
 		StatisticEventQueueLength: 1,
 		LogLevel:                  zerolog.FatalLevel,
 	}
-	logging.Configure()
-	logging.SetOptions(options)
 
 	statisticEventLoop := NewStatisticEventLoop(options)
 	defer statisticEventLoop.Close()
@@ -42,6 +42,8 @@ func TestNewStatisticEventLoop(t *testing.T) {
 }
 
 func TestPodResync(t *testing.T) {
+	testhelpers.ConfigureLogging(t)
+
 	buf := &bytes.Buffer{}
 
 	podStatistics := state.NewPodStatistics([]types.UID{})
