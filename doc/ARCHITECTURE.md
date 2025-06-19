@@ -11,9 +11,11 @@ The Events API is also monitored to gather the `image_pull` metric type.
 ### Data-flow
 
 The [`main`](../cmd/kube-transition-metrics/main.go) function starts the
-[`PodCollector`](../internal/statistics/pod_collector.go), the
-[`PodStatisticEventLoop`](../internal/statistics/event_loop.go), the
-[`ImagePullStatisticEventLoop`](../internal/statistics/event_loop.go), and the HTTP server.
+[`PodCollector`](../internal/statistics/types/types.go), the
+[`PodStatisticEventLoop`](../internal/statistics/types/types.go), the
+[`ImagePullStatisticEventLoop`](../internal/statistics/types/types.go), and the HTTP server.
+`PodCollector` is an interface defined in [`internal/statistics/types`](../internal/statistics/types/types.go),
+implemented by the private `podCollector` struct in [`internal/statistics`](../internal/statistics/pod_collector.go).
 The `PodCollector` gets the list of currently existing pods.
 Any pods created before the `PodCollector` starts up cannot be tracked, as we missed crucial milestones in the Pod's
 life-cycle.
@@ -41,9 +43,9 @@ title: "kube-transition-metrics Data-flow"
 ---
 flowchart TD
     main["./cmd/kube-transition-metrics.main()"]
-    PodCollector["./internal/statistics.PodCollector"]
-    PodStatisticEventLoop["./internal/statistics.PodStatisticEventLoop"]
-    ImagePullStatisticEventLoop["./internal/statistics.ImagePullStatisticEventLoop"]
+    PodCollector["./internal/statistics/types.PodCollector"]
+    PodStatisticEventLoop["./internal/statistics/types.PodStatisticEventLoop"]
+    ImagePullStatisticEventLoop["./internal/statistics/types.ImagePullStatisticEventLoop"]
     imagePullCollector["./internal/statistics.imagePullCollector"]
     Stdout["/dev/stdout"]
 
@@ -63,24 +65,24 @@ flowchart TD
 
 ### Pod Collector zoom-in
 
-The `PodCollector` goroutine receives added, modified, and deleted Pod events from the Kubernetes API.
-When Pods are added, the `PodCollector` sends an event to the `PodStatisticEventLoop` to create a new tracked
+The `podCollector` goroutine receives added, modified, and deleted Pod events from the Kubernetes API.
+When Pods are added, the `podCollector` sends an event to the `PodStatisticEventLoop` to create a new tracked
 [`PodStatistic`](../internal/statistics/state/pod.go), and launches a new `imagePullCollector` routine to track Events
 involving the Pod UID.
-When Pods are modified, the `PodStatisticEventLoop` receives an event to update the `PodStatistic`.
-When Pods are deleted , the `PodStatisticEventLoop` receives an event to remove the `PodStatistic` from tracking,
-then the `imagePullCollector` routine is canceled for this Pod.
+When Pods are modified, the `podCollector` sends an event to the `PodStatisticEventLoop` to update the `PodStatistic`.
+When Pods are deleted, the `podCollector` sends an event to the `PodStatisticEventLoop` to remove the `PodStatistic`
+from tracking, then the `imagePullCollector` routine is canceled for this Pod.
 
 ```mermaid
 ---
 title: "kube-transition-metrics Pod Collector"
 ---
 flowchart TD
-    PodCollector["./internal/statistics.PodCollector"]
+    PodCollector["./internal/statistics/types.PodCollector"]
     imagePullCollector["./internal/statistics.imagePullCollector"]
     PodsWatch["k8s.io/api/core/v1.PodInterface"]
     Pod["k8s.io/api/core/v1.Pod"]
-    PodStatisticEventLoop["./internal/statistics.PodStatisticEventLoop"]
+    PodStatisticEventLoop["./internal/statistics/types.PodStatisticEventLoop"]
 
     PodCollector
         -->|"Watch(...)"| PodsWatch
@@ -108,7 +110,7 @@ flowchart TD
     imagePullCollector["./internal/statistics.imagePullCollector"]
     EventsWatch["k8s.io/api/core/v1.EventInterface"]
     Event["k8s.io/api/core/v1.Event"]
-    ImagePullStatisticEventLoop["./internal/statistics.ImagePulltatisticEventLoop"]
+    ImagePullStatisticEventLoop["./internal/statistics/types.ImagePullStatisticEventLoop"]
 
     imagePullCollector
         -->|"Watch(...)"| EventsWatch
@@ -122,7 +124,9 @@ flowchart TD
 
 The data model for the pod statistics is composed of the following main components:
 
-- `PodStatisticEventLoop`: The main event loop that handles the [`PodStatistics`](../internal/statistics/state/pod.go)
+- [`PodStatisticEventLoop`](../internal/statistics/types/types.go): An interface defined in
+  `internal/statistics/types`, implemented by the private `podStatisticEventLoop` in `internal/statistics`.
+  The main event loop that handles the [`PodStatistics`](../internal/statistics/state/pod.go)
   and has exclusive access to modify the statistics through dispatched events.
 - `PodStatistics`: The statistics for all tracked pods, which contains a map of pod UIDs to their respective
   `PodStatistic` as well as a list of UIDs that should not be tracked.
@@ -141,7 +145,7 @@ The data model for the pod statistics is composed of the following main componen
 title: "kube-transition-metrics Pod Statistic Data Model"
 ---
 flowchart TD
-    PodStatisticEventLoop["./internal/statistics.PodStatisticEventLoop"]
+    PodStatisticEventLoop["./internal/statistics/types.PodStatisticEventLoop"]
     PodStatistics["./internal/statistics/state.PodStatistics"]
     PodStatistic["./internal/statistics/state.PodStatistic"]
     blacklistUIDs["[]k8s.io/apimachinery/pkg/types.UID"]
@@ -163,8 +167,10 @@ flowchart TD
 
 The data model for the image pull statistics is composed of the following main components:
 
-- [`ImagePullStatisticEventLoop`](../internal/statistics/event_loop.go): The main event loop that handles the
-  `PodImagePullStatistic` and has exclusive access to modify the statistics through dispatched events.
+- [`ImagePullStatisticEventLoop`](../internal/statistics/types/types.go): An interface defined in
+  `internal/statistics/types`, implemented by the private `imagePullStatisticEventLoop` in `internal/statistics`.
+  The main event loop that handles the `PodImagePullStatistic` and has exclusive access to modify the statistics
+  through dispatched events.
 - [`ImagePullStatistics`](../internal/statistics/state/image_pull.go): The statistics for all tracked pods, which
   contains a map of pod UIDs to their respective `PodImagePullStatistic`.
 - `PodImagePullStatistic`: A collection of the
@@ -176,7 +182,7 @@ The data model for the image pull statistics is composed of the following main c
 title: "kube-transition-metrics Image Pull Statistic Data Model"
 ---
 flowchart TD
-    ImagePullStatisticEventLoop["./internal/statistics.ImagePullStatisticEventLoop"]
+    ImagePullStatisticEventLoop["./internal/statistics/types.ImagePullStatisticEventLoop"]
     ImagePullStatistics["./internal/statistics/state.ImagePullStatistics"]
     PodImagePullStatistic["./internal/statistics/state.PodImagePullStatistic"]
     ContainerImagePullStatistic["./internal/statistics/state.ContainerImagePullStatistic"]
