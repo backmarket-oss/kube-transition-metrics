@@ -30,14 +30,18 @@ type PodCollector struct {
 
 	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod statistic
 	// states.
-	statisticEventLoop *PodStatisticEventLoop
+	statisticEventLoop PodStatisticEventLoopI
 
 	// imagePullEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle image pull
 	// statistic states.
-	imagePullEventLoop *ImagePullStatisticEventLoop
+	imagePullEventLoop ImagePullStatisticEventLoopI
 
-	// imagePullCollectors is a map of [*imagePullCollector] instances for each Pod [types.UID].
-	// Keys are [types.UID] and values are [*imagePullCollector].
+	// newImagePullCollector is a function that creates (but does not start) a new imagePullCollector instance.
+	// It is used to allow mocking in tests and to provide a clear contract for the collector's behavior.
+	newImagePullCollector imagePullCollectorFactory
+
+	// imagePullCollectors is a map of [imagePullCollectorI] interfaces for each Pod [types.UID].
+	// Keys are [types.UID] and values are [imagePullCollectorI].
 	// Moving the imagePullCollectors to an event loop to avoid having to handle concurrent access would simplify the code
 	// and make it easier to reason about.
 	imagePullCollectors *sync.Map
@@ -46,14 +50,21 @@ type PodCollector struct {
 // NewPodCollector creates a new PodCollector object using the provided
 // StatisticEventHandler.
 func NewPodCollector(
-	options *options.Options,
-	statisticEventLoop *PodStatisticEventLoop,
-	imagePullEventLoop *ImagePullStatisticEventLoop,
+	opts *options.Options,
+	statisticEventLoop PodStatisticEventLoopI,
+	imagePullEventLoop ImagePullStatisticEventLoopI,
 ) *PodCollector {
 	return &PodCollector{
-		options:             options,
-		statisticEventLoop:  statisticEventLoop,
-		imagePullEventLoop:  imagePullEventLoop,
+		options:            opts,
+		statisticEventLoop: statisticEventLoop,
+		imagePullEventLoop: imagePullEventLoop,
+		newImagePullCollector: func(
+			options *options.Options,
+			el ImagePullStatisticEventLoopI,
+			pod *corev1.Pod,
+		) imagePullCollectorI {
+			return newImagePullCollector(options, el, pod)
+		},
 		imagePullCollectors: &sync.Map{},
 	}
 }
@@ -147,10 +158,10 @@ func (w *PodCollector) addImagePullCollector(
 	clientset *kubernetes.Clientset,
 	pod *corev1.Pod,
 ) {
-	collector := newImagePullCollector(w.options, w.imagePullEventLoop, pod)
+	collector := w.newImagePullCollector(w.options, w.imagePullEventLoop, pod)
 	// Cancel any image pull collectors before removing them from the map
 	if existing, ok := w.imagePullCollectors.Swap(pod.UID, collector); ok {
-		existingCollector, isCollector := existing.(*imagePullCollector)
+		existingCollector, isCollector := existing.(imagePullCollectorI)
 		if !isCollector {
 			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
 		}
@@ -166,9 +177,9 @@ func (w *PodCollector) addImagePullCollector(
 // cancelImagePullCollector cancels and removes the image pull collector for the given pod UID.
 func (w *PodCollector) cancelImagePullCollector(uid types.UID, reason string) {
 	if existing, ok := w.imagePullCollectors.LoadAndDelete(uid); ok {
-		collector, ok := existing.(*imagePullCollector)
+		collector, ok := existing.(imagePullCollectorI)
 		if !ok {
-			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
+			log.Panic().Any("value", existing).Msgf("Non-imagePullCollectorI found in imagePullCollectors map")
 		}
 		go collector.cancel(reason)
 	}

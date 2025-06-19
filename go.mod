@@ -1,8 +1,6 @@
 module github.com/BackMarket-oss/kube-transition-metrics
 
-go 1.24.0
-
-toolchain go1.24.2
+go 1.24.3
 
 require (
 	github.com/Izzette/go-safeconcurrency v0.5.1

@@ -32,16 +32,32 @@ type imagePullCollector struct {
 
 	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle image pull
 	// statistic states.
-	statisticEventLoop *ImagePullStatisticEventLoop
+	statisticEventLoop ImagePullStatisticEventLoopI
 
 	// pod is the Kubernetes pod for which image pull events are being collected.
 	pod *corev1.Pod
 }
 
+// imagePullCollectorI is an interface that defines the methods for the imagePullCollector.
+// It is used to allow mocking in tests and to provide a clear contract for the collector's behavior.
+type imagePullCollectorI interface {
+	Run(*kubernetes.Clientset)
+	handleWatchEvent(watch.Event) bool
+	handleEvent(watch.EventType, *corev1.Event)
+	watch(*kubernetes.Clientset) bool
+	watchOptions() metav1.ListOptions
+	cancel(string)
+	logger() *zerolog.Logger
+}
+
+// imagePullCollectorFactory is a function type that creates a new imagePullCollector instance.
+// It is used to allow mocking in tests and to provide a clear contract for the collector's behavior.
+type imagePullCollectorFactory func(*options.Options, ImagePullStatisticEventLoopI, *corev1.Pod) imagePullCollectorI
+
 // newImagePullCollector creates (but does not start) a new imagePullCollector instance.
 func newImagePullCollector(
 	options *options.Options,
-	statisticEventLoop *ImagePullStatisticEventLoop,
+	statisticEventLoop ImagePullStatisticEventLoopI,
 	pod *corev1.Pod,
 ) *imagePullCollector {
 	return &imagePullCollector{

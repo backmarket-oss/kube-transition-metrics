@@ -8,25 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BackMarket-oss/kube-transition-metrics/internal/logging"
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/testhelpers"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// configureLogging sets up the global logging configuration for the tests.
-// It forbids parallel execution of tests that use this function.
-func configureLogging(t *testing.T) {
-	t.Helper()
-
-	t.Cleanup(func() {
-		logging.Unconfigure()
-	})
-	logging.Configure()
-}
-
 func TestNewPodStatistic(t *testing.T) {
-	configureLogging(t)
+	testhelpers.ConfigureLogging(t)
 
 	// Define a test pod
 	pod := &corev1.Pod{
@@ -130,7 +119,7 @@ func decodeMetrics(t *testing.T, buf *bytes.Buffer) []map[string]interface{} {
 }
 
 func TestPodStatisticUpdate(t *testing.T) {
-	configureLogging(t)
+	testhelpers.ConfigureLogging(t)
 
 	format := "2006-01-02T15:04:05Z07:00"
 	created, err := time.Parse(format, "2023-08-28T00:00:00Z")
@@ -193,7 +182,7 @@ func TestPodStatisticUpdate(t *testing.T) {
 }
 
 func TestContainerStatisticUpdate(t *testing.T) {
-	configureLogging(t)
+	testhelpers.ConfigureLogging(t)
 
 	// 1. Setup a sample container status
 	status := corev1.ContainerStatus{

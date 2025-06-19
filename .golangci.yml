@@ -5,6 +5,7 @@ linters:
     - depguard
     - exhaustruct
     - godox
+    - inamedparam
     - ireturn
     - paralleltest
     - testpackage
