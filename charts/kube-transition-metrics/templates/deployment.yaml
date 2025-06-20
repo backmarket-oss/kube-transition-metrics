@@ -4,6 +4,14 @@ metadata:
   name: {{ include "kube-transition-metrics.fullname" . | quote }}
   labels:
     {{- include "kube-transition-metrics.labels" . | nindent 4 }}
+    {{- with .Values.deploymentLabels }}
+    {{-   toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- include "kube-transition-metrics.annotations" . | nindent 4 }}
+    {{- with .Values.deploymentAnnotations }}
+    {{-   toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}

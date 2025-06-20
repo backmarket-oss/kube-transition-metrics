@@ -35,11 +35,28 @@ Common labels
 */}}
 {{- define "kube-transition-metrics.labels" -}}
 helm.sh/chart: {{ include "kube-transition-metrics.chart" . }}
+app.kubernetes.io/name: {{ include "kube-transition-metrics.name" . | quote }}
+app.kubernetes.io/instance: {{ .Release.Name | quote }}
 {{ include "kube-transition-metrics.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
+app.kubernetes.io/part-of: {{ .Chart.Name | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+{{-   with .Values.labels }}
+{{      . | toYaml }}
+{{-   end }}
+{{- end }}
+
+{{/*
+Common annotations
+*/}}
+{{- define "kube-transition-metrics.annotations" -}}
+meta.helm.sh/release-name: {{ .Release.Name | quote }}
+meta.helm.sh/release-namespace: {{ .Release.Namespace | quote }}
+{{-   with .Values.annotations }}
+{{      . | toYaml }}
+{{-   end }}
 {{- end }}
 
 {{/*
