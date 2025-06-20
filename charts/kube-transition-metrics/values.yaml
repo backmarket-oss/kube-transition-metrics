@@ -33,6 +33,12 @@ role:
     annotations: {}
     name: ""
 
+annotations: {}
+labels: {}
+
+deploymentAnnotations: {}
+deploymentLabels: {}
+
 podAnnotations: {}
 podLabels:
   service: kube-transition-metrics
