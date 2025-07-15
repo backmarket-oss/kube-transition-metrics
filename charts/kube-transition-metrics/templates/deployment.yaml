@@ -54,7 +54,9 @@ spec:
             periodSeconds: 5
           command:
             - /kube-transition-metrics
-            - --listen-address=0.0.0.0:8080
+            {{- with .Values.commandArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
