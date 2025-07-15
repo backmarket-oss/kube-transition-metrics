@@ -8,6 +8,9 @@ image:
   repository: "ghcr.io/backmarket-oss/kube-transition-metrics"
   pullPolicy: IfNotPresent
 
+commandArgs:
+  - --listen-address=0.0.0.0:8080
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
