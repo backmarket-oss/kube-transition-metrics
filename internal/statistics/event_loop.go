@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"sync"
 	"time"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/logging"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics/state"
@@ -21,11 +23,21 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// PodStatisticEventLoopI is an interface for the PodStatisticEventLoop.
+// It is used for testing purposes to mock the event loop.
+type PodStatisticEventLoopI interface {
+	safeconcurrencytypes.EventLoop[*state.PodStatistics]
+	PodUpdate(context.Context, *corev1.Pod) (safeconcurrencytypes.GenerationID, error)
+	PodDelete(context.Context, *corev1.Pod) (safeconcurrencytypes.GenerationID, error)
+	PodResync(context.Context, []types.UID) (safeconcurrencytypes.GenerationID, error)
+}
+
 // PodStatisticEventLoop loops over pod statistic events sent by collectors to track and update metrics.
 type PodStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.PodStatistics]
-	options     *options.Options
-	watcherChan <-chan struct{}
+	options      *options.Options
+	watcherChan  <-chan struct{}
+	metricOutput io.Writer
 }
 
 // NewStatisticEventLoop creates a new StatisticEventHandler which filters out events for the provided
@@ -39,8 +51,9 @@ func NewStatisticEventLoop(options *options.Options) *PodStatisticEventLoop {
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &PodStatisticEventLoop{
-		options:   options,
-		EventLoop: eventloop.NewBuffered[*state.PodStatistics](snapshot, buffer),
+		options:      options,
+		EventLoop:    eventloop.NewBuffered[*state.PodStatistics](snapshot, buffer),
+		metricOutput: metricOutput,
 	}
 }
 
@@ -95,7 +108,7 @@ func (el *PodStatisticEventLoop) PodUpdate(
 		pod:       pod,
 		eventTime: time.Now(),
 		options:   el.options,
-		output:    metricOutput,
+		output:    el.metricOutput,
 	})
 }
 
@@ -118,7 +131,7 @@ func (el *PodStatisticEventLoop) PodResync(
 ) (safeconcurrencytypes.GenerationID, error) {
 	return el.Send(ctx, &resyncEvent{
 		blacklistUIDs: blacklistUIDs,
-		output:        metricOutput,
+		output:        el.metricOutput,
 	})
 }
 
@@ -132,12 +145,21 @@ func (el *PodStatisticEventLoop) watcher(
 	return true
 }
 
+// ImagePullStatisticEventLoopI is an interface for the ImagePullStatisticEventLoop.
+// It is used for testing purposes to mock the event loop.
+type ImagePullStatisticEventLoopI interface {
+	safeconcurrencytypes.EventLoop[*state.ImagePullStatistics]
+	ImagePullUpdate(context.Context, *corev1.Pod, *corev1.Event) (safeconcurrencytypes.GenerationID, error)
+	ImagePullDelete(context.Context, *corev1.Pod) (safeconcurrencytypes.GenerationID, error)
+}
+
 // ImagePullStatisticEventLoop loops over image pull statistic events sent by collectors to track and update metrics for
 // image pulls.
 type ImagePullStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.ImagePullStatistics]
-	options     *options.Options
-	watcherChan <-chan struct{}
+	options      *options.Options
+	watcherChan  <-chan struct{}
+	metricOutput io.Writer
 }
 
 // NewImagePullStatisticEventLoop creates a new ImagePullStatisticEventLoop.
@@ -150,8 +172,9 @@ func NewImagePullStatisticEventLoop(options *options.Options) *ImagePullStatisti
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &ImagePullStatisticEventLoop{
-		EventLoop: eventloop.NewBuffered[*state.ImagePullStatistics](snapshot, buffer),
-		options:   options,
+		EventLoop:    eventloop.NewBuffered[*state.ImagePullStatistics](snapshot, buffer),
+		options:      options,
+		metricOutput: metricOutput,
 	}
 }
 
@@ -204,7 +227,7 @@ func (el *ImagePullStatisticEventLoop) ImagePullUpdate(
 	return el.Send(ctx, &imagePullUpdateEvent{
 		pod:      pod,
 		k8sEvent: k8sEvent,
-		output:   metricOutput,
+		output:   el.metricOutput,
 		options:  el.options,
 	})
 }
@@ -509,3 +532,11 @@ func newParseContainerNameError(fieldRef string) *parseContainerNameError {
 func (e *parseContainerNameError) Error() string {
 	return fmt.Sprintf("failed to parse container name from %#v", e.fieldRef)
 }
+
+// metricOutput is the default output writer for metrics.
+//
+//nolint:gochecknoglobals
+var metricOutput io.Writer = zerolog.MultiLevelWriter(
+	os.Stdout,
+	logging.NewValidationWriter(),
+)
