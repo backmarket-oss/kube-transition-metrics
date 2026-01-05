@@ -70,7 +70,8 @@ func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
 				"Failed to resync after 410 Gone from kubernetes Watch API")
 		}
 
-		if _, err := w.statisticEventLoop.PodResync(context.TODO(), resyncUIDs); err != nil {
+		_, err = w.statisticEventLoop.PodResync(context.TODO(), resyncUIDs)
+		if err != nil {
 			log.Panic().Err(err).Msg("Failed to publish resync pods")
 		}
 
@@ -123,18 +124,22 @@ func (w *PodCollector) handlePod(
 
 		fallthrough
 	case watch.Modified:
-		if _, err := w.statisticEventLoop.PodUpdate(context.TODO(), pod); err != nil {
+		_, err := w.statisticEventLoop.PodUpdate(context.TODO(), pod)
+		if err != nil {
 			logger.Error().Err(err).Msg("Error publishing PodUpdate event")
 			prommetrics.PodCollectorErrors.Inc()
 		}
+
 		if pod.Status.Phase == corev1.PodRunning {
 			w.cancelImagePullCollector(pod.UID, "pod already running")
 		}
 	case watch.Deleted:
-		if _, err := w.statisticEventLoop.PodDelete(context.TODO(), pod); err != nil {
+		_, err := w.statisticEventLoop.PodDelete(context.TODO(), pod)
+		if err != nil {
 			logger.Error().Err(err).Msg("Error publishing PodDelete event")
 			prommetrics.PodCollectorErrors.Inc()
 		}
+
 		w.cancelImagePullCollector(pod.UID, "pod deleted")
 	case watch.Bookmark:
 		logger.Warn().Msgf("Got Bookmark event: %+v", pod)
@@ -154,8 +159,10 @@ func (w *PodCollector) addImagePullCollector(
 		if !isCollector {
 			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
 		}
+
 		go existingCollector.cancel("pod replaced")
 	}
+
 	go func() {
 		collector.Run(clientset)
 		// Delete the collector from the map if it is the same as the one that finished running
@@ -170,6 +177,7 @@ func (w *PodCollector) cancelImagePullCollector(uid types.UID, reason string) {
 		if !ok {
 			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
 		}
+
 		go collector.cancel(reason)
 	}
 }
@@ -211,8 +219,11 @@ func (w *PodCollector) watch(
 	defer watcher.Stop()
 
 	for event := range watcher.ResultChan() {
-		var pod *corev1.Pod
-		var isAPod bool
+		var (
+			pod    *corev1.Pod
+			isAPod bool
+		)
+
 		if event.Type == watch.Error {
 			prommetrics.PodCollectorErrors.Inc()
 			// API error will not be wrapped and StatusError doesn't implement the
@@ -256,7 +267,9 @@ func (w *PodCollector) collectInitialPods(
 	}
 
 	blacklistUIDs := make([]types.UID, 0)
+
 	log.Info().Msg("Listing pods to get initial state ...")
+
 	var list *corev1.PodList
 	for list == nil || list.Continue != "" {
 		if list != nil {
@@ -265,7 +278,9 @@ func (w *PodCollector) collectInitialPods(
 		}
 
 		log.Debug().Msgf("Listing from %+v ...", listOptions.Continue)
+
 		var err error
+
 		list, err =
 			clientset.CoreV1().Pods("").List(context.TODO(), listOptions)
 		if err != nil {
@@ -278,6 +293,7 @@ func (w *PodCollector) collectInitialPods(
 			blacklistUIDs = append(blacklistUIDs, pod.UID)
 		}
 	}
+
 	log.Info().
 		Msgf("Initial sync completed, resource version %+v", list.ResourceVersion)
 

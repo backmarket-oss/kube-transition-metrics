@@ -40,6 +40,7 @@ func getKubeconfigFromPath(options *options.Options) *rest.Config {
 	} else {
 		kubeconfigPath = os.Getenv("HOME") + "/.kube/config"
 	}
+
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil {
 		log.Panic().Err(err).
@@ -61,15 +62,18 @@ func getKubeconfig(options *options.Options) *rest.Config {
 
 func main() {
 	logging.Configure()
+
 	defer logging.Unconfigure()
 
 	prommetrics.Register()
+
 	defer prommetrics.Unregister()
 
 	options := options.Parse()
 	logging.SetOptions(options)
 
 	config := getKubeconfig(options)
+
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Panic().Err(err).Msg("Failed to build kubernetes client")
@@ -77,21 +81,25 @@ func main() {
 
 	podStatisticEventLoop := statistics.NewStatisticEventLoop(options)
 	defer podStatisticEventLoop.Close()
+
 	podStatisticEventLoop.Start()
 
 	imagePullStatisticEventLoop := statistics.NewImagePullStatisticEventLoop(options)
 	defer imagePullStatisticEventLoop.Close()
+
 	imagePullStatisticEventLoop.Start()
 
 	podCollector := statistics.NewPodCollector(options, podStatisticEventLoop, imagePullStatisticEventLoop)
 	go podCollector.Run(clientset)
 
 	http.Handle("/metrics", promhttp.Handler())
+
 	handler := logging.NewHTTPHandler(http.DefaultServeMux)
 	// No timeouts can be set, but that's OK for us as this HTTP server will not be
 	// exposed publicly.
 	//nolint:gosec
-	if err := http.ListenAndServe(options.ListenAddress, handler); err != nil {
+	err = http.ListenAndServe(options.ListenAddress, handler)
+	if err != nil {
 		log.Panic().Err(err).Msg(err.Error())
 	}
 }

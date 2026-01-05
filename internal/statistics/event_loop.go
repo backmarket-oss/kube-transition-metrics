@@ -24,6 +24,7 @@ import (
 // PodStatisticEventLoop loops over pod statistic events sent by collectors to track and update metrics.
 type PodStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.PodStatistics]
+
 	options     *options.Options
 	watcherChan <-chan struct{}
 }
@@ -33,9 +34,11 @@ type PodStatisticEventLoop struct {
 func NewStatisticEventLoop(options *options.Options) *PodStatisticEventLoop {
 	s := state.NewPodStatistics([]types.UID{})
 	snapshot := snapshot.NewCopyable[*state.PodStatistics](s)
+
 	if options.StatisticEventQueueLength < 0 {
 		log.Panic().Msg("StatisticEventQueueLength must be greater than 0")
 	}
+
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &PodStatisticEventLoop{
@@ -73,6 +76,7 @@ func (el *PodStatisticEventLoop) Send(
 
 	// Wrap the event to track the event metrics.
 	tevent := &trackEvent[*state.PodStatistics]{event, &sync.Once{}, labels}
+
 	gen, err := el.EventLoop.Send(ctx, tevent)
 	if err == nil {
 		// Only increment the queue depth if the event was successfully sent to the event loop.
@@ -136,6 +140,7 @@ func (el *PodStatisticEventLoop) watcher(
 // image pulls.
 type ImagePullStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.ImagePullStatistics]
+
 	options     *options.Options
 	watcherChan <-chan struct{}
 }
@@ -144,9 +149,11 @@ type ImagePullStatisticEventLoop struct {
 func NewImagePullStatisticEventLoop(options *options.Options) *ImagePullStatisticEventLoop {
 	s := state.NewImagePullStatistics()
 	snapshot := snapshot.NewCopyable[*state.ImagePullStatistics](s)
+
 	if options.StatisticEventQueueLength < 0 {
 		log.Panic().Msg("StatisticEventQueueLength must be greater than 0")
 	}
+
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &ImagePullStatisticEventLoop{
@@ -181,6 +188,7 @@ func (el *ImagePullStatisticEventLoop) Send(
 
 	// Wrap the event to track the event metrics.
 	tevent := &trackEvent[*state.ImagePullStatistics]{event, &sync.Once{}, labels}
+
 	gen, err := el.EventLoop.Send(ctx, tevent)
 	if err == nil {
 		// Only increment the queue depth if the event was successfully sent to the event loop.
@@ -355,6 +363,7 @@ func (e *resyncEvent) Dispatch(
 	}
 
 	newPodStatistics := state.NewPodStatistics(newBlacklist)
+
 	for uid, statistic := range podStatistics.All() {
 		if _, ok := blacklistSet[uid]; ok {
 			// This pod was previously tracked, and is in the resync set (still in cluster), we can keep tracking it.
@@ -374,6 +383,7 @@ func (e *resyncEvent) Dispatch(
 				Msg("Pod was previously tracked, but is not in the resync set (not in cluster), statistics have been lost")
 		}
 	}
+
 	podStatistics = newPodStatistics
 
 	return podStatistics
@@ -481,6 +491,7 @@ func (e *deleteImagePullEvent) Dispatch(
 
 		return statisticState
 	}
+
 	for _, container := range imagePullStatistic.Containers() {
 		if container.Partial() {
 			container.Report(e.output, e.pod, "premature deletion of pod")

@@ -24,6 +24,6 @@ jobs:
           go-version: stable
           check-latest: true
 
-      - uses: golangci/golangci-lint-action@v7
+      - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.1.5
+          version: v2.7.2

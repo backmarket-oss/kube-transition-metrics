@@ -32,18 +32,23 @@ func commonPodLabels(pod *corev1.Pod) func(event *zerolog.Event) {
 	return func(event *zerolog.Event) {
 		event.Str("kube_namespace", pod.Namespace)
 		event.Str("pod_name", pod.Name)
+
 		if pod.Spec.NodeName != "" {
 			event.Str("kube_node", pod.Spec.NodeName)
 		}
+
 		if pod.Status.QOSClass != "" {
 			event.Str("kube_qos", string(pod.Status.QOSClass))
 		}
+
 		if pod.Spec.PriorityClassName != "" {
 			event.Str("kube_priority_class", pod.Spec.PriorityClassName)
 		}
+
 		if pod.Spec.RuntimeClassName != nil {
 			event.Str("kube_runtime_class", *pod.Spec.RuntimeClassName)
 		}
+
 		event.Func(ownerRefLabels(pod.OwnerReferences))
 		event.Func(appLabels(pod.Labels))
 		// TODO: find Service pointing to this pod and add kube_service label.
@@ -72,6 +77,7 @@ func imageLabels(logger *zerolog.Logger, image string) func(event *zerolog.Event
 		}
 
 		event.Str("image_name", repo)
+
 		parsed, err := url.Parse(repo)
 		if err != nil {
 			logger.Error().Err(err).Str("image_repo", repo).Msg("failed to parse image repo")
@@ -83,6 +89,7 @@ func imageLabels(logger *zerolog.Logger, image string) func(event *zerolog.Event
 		if tag == "" {
 			tag = digest
 		}
+
 		event.Str("image_tag", tag)
 	}
 }

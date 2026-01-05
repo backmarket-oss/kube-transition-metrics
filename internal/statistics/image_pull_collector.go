@@ -60,11 +60,13 @@ func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
 	prommetrics.ImagePullCollectorRoutines.Inc()
+
 	defer func() {
 		_, err := c.statisticEventLoop.ImagePullDelete(context.TODO(), c.pod)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error cleaning up image pull statistic")
 		}
+
 		logger.Debug().Msg("Stopped ImagePullCollector.")
 		prommetrics.ImagePullCollectorRoutines.Dec()
 	}()
@@ -83,8 +85,11 @@ func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
 func (c *imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 	logger := c.logger()
 
-	var event *corev1.Event
-	var isEvent bool
+	var (
+		event   *corev1.Event
+		isEvent bool
+	)
+
 	if watchEvent.Type == watch.Error {
 		logger.Error().Msgf("Watch event error: %+v", watchEvent)
 		prommetrics.ImagePullCollectorErrors.Inc()
@@ -114,7 +119,8 @@ func (c *imagePullCollector) handleEvent(
 
 	switch event.Reason {
 	case "Pulling", "Pulled":
-		if _, err := c.statisticEventLoop.ImagePullUpdate(context.TODO(), c.pod, event); err != nil {
+		_, err := c.statisticEventLoop.ImagePullUpdate(context.TODO(), c.pod, event)
+		if err != nil {
 			logger.Error().Err(err).Any("event", event).Msg("Error publishing ImagePull event")
 		}
 	default:
@@ -129,6 +135,7 @@ func (c *imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	// TODO: use a ("k8s.io/client-go/tools/watch").RetryWatcher to allow fetching
 	// existing events.
 	watchOpts := c.watchOptions()
+
 	watcher, err :=
 		clientset.CoreV1().Events(c.pod.Namespace).Watch(context.TODO(), watchOpts)
 	if err != nil {
@@ -160,6 +167,7 @@ func (c *imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 			prommetrics.ImagePullWatchEvents.
 				With(prometheus.Labels{"event_type": string(watchEvent.Type)}).
 				Inc()
+
 			if shouldBreak {
 				return false
 			}
@@ -198,7 +206,9 @@ func (c *imagePullCollector) cancel(reason string) {
 
 	if !c.canceled.Swap(true) {
 		logger.Debug().Msgf("Canceling collector: %s", reason)
+
 		c.cancelChan <- reason
+
 		close(c.cancelChan)
 	} else {
 		logger.Debug().Msgf("Duplicate collector cancel received: %s", reason)

@@ -102,27 +102,33 @@ func checkBasicPodStatisticFields(t *testing.T, stat *PodStatistic) {
 	assert.NotEmpty(t, stat.containers, "containers map was not populated")
 }
 
-func decodeMetrics(t *testing.T, buf *bytes.Buffer) []map[string]interface{} {
+func decodeMetrics(t *testing.T, buf *bytes.Buffer) []map[string]any {
 	t.Helper()
+
 	decoder := json.NewDecoder(buf)
-	statisticLogs := make([]map[string]interface{}, 0)
+	statisticLogs := make([]map[string]any, 0)
+
 	for {
-		var document interface{}
-		if err := decoder.Decode(&document); errors.Is(err, io.EOF) {
+		var document any
+
+		err := decoder.Decode(&document)
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			t.Errorf("Invalid JSON output")
 		}
 
-		if !assert.IsType(t, make(map[string]interface{}), document, "Log document is not an object") {
+		if !assert.IsType(t, make(map[string]any), document, "Log document is not an object") {
 			continue
 		}
-		mapDocument, _ := document.(map[string]interface{})
-		if !assert.IsType(t, make(map[string]interface{}), mapDocument["kube_transition_metrics"],
+
+		mapDocument, _ := document.(map[string]any)
+		if !assert.IsType(t, make(map[string]any), mapDocument["kube_transition_metrics"],
 			"kube_transition_metric key of log document is not an object") {
 			continue
 		}
-		mapMetrics, _ := mapDocument["kube_transition_metrics"].(map[string]interface{})
+
+		mapMetrics, _ := mapDocument["kube_transition_metrics"].(map[string]any)
 		statisticLogs = append(statisticLogs, mapMetrics)
 	}
 
@@ -133,10 +139,12 @@ func TestPodStatisticUpdate(t *testing.T) {
 	configureLogging(t)
 
 	format := "2006-01-02T15:04:05Z07:00"
+
 	created, err := time.Parse(format, "2023-08-28T00:00:00Z")
 	if err != nil {
 		panic(err)
 	}
+
 	pod := newTestingPod(created)
 
 	now := pod.CreationTimestamp.Add(3 * time.Second)
@@ -157,7 +165,7 @@ func TestPodStatisticUpdate(t *testing.T) {
 		return
 	}
 
-	sharedAssertations := func(log map[string]interface{}) {
+	sharedAssertations := func(log map[string]any) {
 		assert.Equal(t, "test-namespace", log["kube_namespace"])
 		assert.Equal(t, "test-pod", log["pod_name"])
 	}
@@ -167,8 +175,9 @@ func TestPodStatisticUpdate(t *testing.T) {
 	assert.Equal(t,
 		"pod", metrics["type"],
 		"first log metric is not of type pod")
-	if assert.IsType(t, make(map[string]interface{}), metrics["pod"]) {
-		podMetrics, _ := metrics["pod"].(map[string]interface{})
+
+	if assert.IsType(t, make(map[string]any), metrics["pod"]) {
+		podMetrics, _ := metrics["pod"].(map[string]any)
 		assert.InDelta(t,
 			2*time.Second.Seconds(), podMetrics["creation_to_initialized_seconds"], 1e-5,
 			"Initialized latency is not correct")
@@ -182,8 +191,9 @@ func TestPodStatisticUpdate(t *testing.T) {
 	assert.Equal(t,
 		"container", metrics["type"],
 		"second log metric is not of type container")
-	if assert.IsType(t, make(map[string]interface{}), metrics["container"]) {
-		containerMetrics, _ := metrics["container"].(map[string]interface{})
+
+	if assert.IsType(t, make(map[string]any), metrics["container"]) {
+		containerMetrics, _ := metrics["container"].(map[string]any)
 		assert.Equal(t,
 			false, containerMetrics["init_container"], "Container should not be an init container")
 		assert.InDelta(t,

@@ -50,12 +50,15 @@ func (cs *ContainerStatistic) event(event *zerolog.Event) {
 	if !cs.runningTimestamp.IsZero() {
 		event.Time("running_timestamp", cs.runningTimestamp)
 	}
+
 	if !cs.startedTimestamp.IsZero() {
 		event.Time("started_timestamp", cs.startedTimestamp)
+
 		if !cs.runningTimestamp.IsZero() {
 			event.Dur("running_to_started_seconds", cs.startedTimestamp.Sub(cs.runningTimestamp))
 		}
 	}
+
 	if !cs.readyTimestamp.IsZero() {
 		event.Time("ready_timestamp", cs.readyTimestamp)
 
@@ -69,6 +72,7 @@ func (cs *ContainerStatistic) event(event *zerolog.Event) {
 		if !cs.runningTimestamp.IsZero() {
 			event.Dur("running_to_ready_seconds", cs.readyTimestamp.Sub(cs.runningTimestamp))
 		}
+
 		if !cs.startedTimestamp.IsZero() {
 			event.Dur("started_to_ready_seconds", cs.readyTimestamp.Sub(cs.runningTimestamp))
 		}
@@ -120,9 +124,11 @@ func (cs *ContainerStatistic) update(
 	if cs.runningTimestamp.IsZero() && status.State.Running != nil {
 		cs.runningTimestamp = now
 	}
+
 	if cs.startedTimestamp.IsZero() && status.Started != nil && *status.Started {
 		cs.startedTimestamp = now
 	}
+
 	if cs.readyTimestamp.IsZero() && status.Ready {
 		cs.readyTimestamp = now
 	}
@@ -143,6 +149,7 @@ func (cs *InitContainerStatistic) Report(
 	previous *InitContainerStatistic,
 ) {
 	logger := cs.logger(podStatistic.logger())
+
 	container := findContainer(cs.name, pod.Spec.InitContainers)
 	if container == nil {
 		logger.Panic().Msg("container not found")
@@ -177,9 +184,11 @@ func (cs *InitContainerStatistic) Update(
 func (cs *InitContainerStatistic) event(previous *InitContainerStatistic) *zerolog.Event {
 	event := zerolog.Dict()
 	event.Bool("init_container", true)
+
 	if !cs.runningTimestamp.IsZero() && previous != nil && !previous.readyTimestamp.IsZero() {
 		event.Dur("previous_to_running_seconds", cs.runningTimestamp.Sub(previous.readyTimestamp))
 	}
+
 	cs.ContainerStatistic.event(event)
 
 	return event
@@ -193,6 +202,7 @@ type NonInitContainerStatistic struct {
 // Report reports the container statistic to the output writer.
 func (cs *NonInitContainerStatistic) Report(output io.Writer, pod *corev1.Pod, podStatistic *PodStatistic) {
 	logger := cs.logger(podStatistic.logger())
+
 	container := findContainer(cs.name, pod.Spec.Containers)
 	if container == nil {
 		logger.Panic().Msg("container not found")
@@ -227,6 +237,7 @@ func (cs *NonInitContainerStatistic) Update(
 func (cs *NonInitContainerStatistic) event(pod *PodStatistic) *zerolog.Event {
 	event := zerolog.Dict()
 	event.Bool("init_container", false)
+
 	if !cs.runningTimestamp.IsZero() && !pod.scheduledTimestamp.IsZero() {
 		event.Dur("initialized_to_running_seconds", cs.runningTimestamp.Sub(pod.scheduledTimestamp))
 	}

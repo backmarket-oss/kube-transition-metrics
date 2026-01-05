@@ -29,6 +29,7 @@ func NewPodImagePullStatistic(pod *corev1.Pod) *PodImagePullStatistic {
 	for _, c := range pod.Spec.InitContainers {
 		containers.Set(c.Name, NewContainerImagePullStatistic(pod, true, c))
 	}
+
 	for _, c := range pod.Spec.Containers {
 		containers.Set(c.Name, NewContainerImagePullStatistic(pod, false, c))
 	}
@@ -181,6 +182,7 @@ func (s *ContainerImagePullStatistic) Report(output io.Writer, pod *corev1.Pod, 
 	} else {
 		container = findContainer(s.containerName, pod.Spec.Containers)
 	}
+
 	if container == nil {
 		logger.Panic().Msg("container not found")
 	}
@@ -197,11 +199,14 @@ func (s *ContainerImagePullStatistic) Report(output io.Writer, pod *corev1.Pod, 
 func (s *ContainerImagePullStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 	event.Bool("already_present", s.alreadyPresent)
+
 	if !s.startedTimestamp.IsZero() {
 		event.Time("started_timestamp", s.startedTimestamp)
 	}
+
 	if !s.finishedTimestamp.IsZero() {
 		event.Time("finished_timestamp", s.finishedTimestamp)
+
 		if !s.startedTimestamp.IsZero() {
 			event.Dur("duration_seconds", s.finishedTimestamp.Sub(s.startedTimestamp))
 		}

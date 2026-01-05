@@ -73,10 +73,10 @@ func TestImagePullStatisticLog(t *testing.T) {
 	// Check if the output contains expected values
 	output := buf.String()
 
-	expected := map[string]interface{}{
-		"kube_transition_metrics": map[string]interface{}{
+	expected := map[string]any{
+		"kube_transition_metrics": map[string]any{
 			"type": "image_pull",
-			"image_pull": map[string]interface{}{
+			"image_pull": map[string]any{
 				"already_present":    true,
 				"started_timestamp":  imagePullStat.startedTimestamp.Format(time.RFC3339),
 				"finished_timestamp": imagePullStat.finishedTimestamp.Format(time.RFC3339),
@@ -93,7 +93,8 @@ func TestImagePullStatisticLog(t *testing.T) {
 		"message": "Test log message",
 	}
 
-	actual := make(map[string]interface{})
+	actual := make(map[string]any)
+
 	err := json.Unmarshal([]byte(output), &actual)
 	if assert.NoError(t, err) {
 		assert.Equal(t,

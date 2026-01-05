@@ -32,6 +32,8 @@ type Options struct {
 }
 
 // Parse parses the options and returns them as a pointer to an Options struct.
+//
+//nolint:funlen
 func Parse() *Options {
 	options := Options{}
 	flag.StringVar(
@@ -76,6 +78,7 @@ func Parse() *Options {
 			"set to false, pods that never become Ready and image pulls that never complete will not be included in the "+
 			"statistics. Partial statistics will always be emitted for pods that are deleted before they become Ready. When "+
 			"set to true, multiple statistics will be emitted for the same pod/image pull. (ADVANCED)")
+
 	logLevel := flag.String(
 		"log-level",
 		"INFO",
@@ -85,7 +88,9 @@ func Parse() *Options {
 			`no metrics being emitted.`)
 
 	flag.Parse()
-	if logLevelParsed, err := zerolog.ParseLevel(*logLevel); err != nil {
+
+	logLevelParsed, err := zerolog.ParseLevel(*logLevel)
+	if err != nil {
 		log.Fatalf("Invalid value for --log-level (%s): %q\n", *logLevel, err)
 	} else {
 		options.LogLevel = logLevelParsed
