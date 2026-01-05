@@ -17,6 +17,7 @@ func Configure() {
 func Unconfigure() {
 	zerolog.DurationFieldInteger = true
 	zerolog.DurationFieldUnit = time.Millisecond
+
 	zerolog.SetGlobalLevel(zerolog.Level(0))
 }
 

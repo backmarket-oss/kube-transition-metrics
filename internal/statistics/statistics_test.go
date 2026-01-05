@@ -19,11 +19,13 @@ func TestNewStatisticEventHandler(t *testing.T) {
 		StatisticEventQueueLength: 1,
 		LogLevel:                  zerolog.FatalLevel,
 	}
+
 	logging.Configure()
 	logging.SetOptions(options)
 
 	statisticsEventLoop := NewStatisticEventLoop(options)
 	defer statisticsEventLoop.Close()
+
 	statisticsEventLoop.Start()
 
 	resyncEvent := &resyncEvent{

@@ -58,12 +58,16 @@ func (w *validationWriter) Write(data []byte) (int, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 
-	var err error
-	var document interface{}
-	if err = decoder.Decode(&document); err != nil {
+	var document any
+
+	err := decoder.Decode(&document)
+	if err != nil {
 		err = fmt.Errorf("failed to decode document for schema validation: %w", err)
-	} else if err = w.schema.Validate(document); err != nil {
-		err = fmt.Errorf("document is not validated by schema: %w", err)
+	} else {
+		err = w.schema.Validate(document)
+		if err != nil {
+			err = fmt.Errorf("document is not validated by schema: %w", err)
+		}
 	}
 
 	return len(data), err

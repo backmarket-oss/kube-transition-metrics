@@ -49,6 +49,7 @@ func NewPodStatistic(now time.Time, pod *corev1.Pod) *PodStatistic {
 
 	initContainerNames := immutable.NewListBuilder[string]()
 	initContainers := immutable.NewMapBuilder[string, *InitContainerStatistic](nil)
+
 	for _, container := range pod.Spec.InitContainers {
 		initContainerNames.Append(container.Name)
 		initContainers.Set(container.Name, &InitContainerStatistic{
@@ -57,6 +58,7 @@ func NewPodStatistic(now time.Time, pod *corev1.Pod) *PodStatistic {
 			},
 		})
 	}
+
 	podStatistic.initContainerNames = initContainerNames.List()
 	podStatistic.initContainers = initContainers.Map()
 
@@ -68,6 +70,7 @@ func NewPodStatistic(now time.Time, pod *corev1.Pod) *PodStatistic {
 			},
 		})
 	}
+
 	podStatistic.containers = containers.Map()
 
 	return podStatistic.Update(now, pod)
@@ -108,9 +111,11 @@ func (s *PodStatistic) InitContainerStatistics() iter.Seq2[string, *InitContaine
 // ([*InitContainerStatistic]).
 func (s *PodStatistic) EachInitContainerStatistic(yield func(string, *InitContainerStatistic) bool) {
 	logger := s.logger()
+
 	initContainerNames := s.initContainerNames.Iterator()
 	for !initContainerNames.Done() {
 		_, containerName := initContainerNames.Next()
+
 		container, ok := s.initContainers.Get(containerName)
 		if !ok {
 			// This should never happen as we're checking `.Done()` on the iterator.
@@ -157,6 +162,7 @@ func (s *PodStatistic) ContainerStatistics() iter.Seq2[string, *NonInitContainer
 // ([*NonInitContainerStatistic]).
 func (s *PodStatistic) EachContainerStatistic(yield func(string, *NonInitContainerStatistic) bool) {
 	logger := s.logger()
+
 	containers := s.containers.Iterator()
 	for !containers.Done() {
 		containerName, container, ok := containers.Next()
@@ -206,7 +212,9 @@ func (s *PodStatistic) Report(output io.Writer, pod *corev1.Pod) {
 	logMetrics(output, "pod", metrics, "")
 
 	initContainers := s.initContainers.Iterator()
+
 	var previous *InitContainerStatistic
+
 	for !initContainers.Done() {
 		_, containerStatistics, ok := initContainers.Next()
 		if !ok {
@@ -241,6 +249,7 @@ func (s *PodStatistic) Update(now time.Time, pod *corev1.Pod) *PodStatistic {
 
 	for _, condition := range pod.Status.Conditions {
 		logger.Trace().Any("pod_condition", condition).Msg("Saw pod condition")
+
 		if condition.Status != corev1.ConditionTrue {
 			continue
 		}
@@ -287,20 +296,25 @@ func (s *PodStatistic) event() *zerolog.Event {
 	event := zerolog.Dict()
 
 	event.Time("creation_timestamp", s.creationTimestamp)
+
 	if !s.scheduledTimestamp.IsZero() {
 		event.Time("scheduled_timestamp", s.scheduledTimestamp)
 		event.Dur("creation_to_scheduled_seconds", s.scheduledTimestamp.Sub(s.creationTimestamp))
 	}
+
 	if !s.initializedTimestamp.IsZero() {
 		event.Time("initialized_timestamp", s.initializedTimestamp)
 		event.Dur("creation_to_initialized_seconds", s.initializedTimestamp.Sub(s.creationTimestamp))
+
 		if !s.scheduledTimestamp.IsZero() {
 			event.Dur("scheduled_to_initialized_seconds", s.initializedTimestamp.Sub(s.scheduledTimestamp))
 		}
 	}
+
 	if !s.readyTimestamp.IsZero() {
 		event.Time("ready_timestamp", s.readyTimestamp)
 		event.Dur("creation_to_ready_seconds", s.readyTimestamp.Sub(s.creationTimestamp))
+
 		if !s.initializedTimestamp.IsZero() {
 			event.Dur("initialized_to_ready_seconds", s.readyTimestamp.Sub(s.initializedTimestamp))
 		}
@@ -319,6 +333,7 @@ func (s *PodStatistic) updateContainers(now time.Time, pod *corev1.Pod) *PodStat
 	for _, containerStatus := range pod.Status.InitContainerStatuses {
 		initContainerStatuses[containerStatus.Name] = containerStatus
 	}
+
 	s = s.MapInitContainerStatistics(
 		func(containerName string, container *InitContainerStatistic) (*InitContainerStatistic, bool) {
 			initContainerStatus, ok := initContainerStatuses[containerName]
@@ -338,6 +353,7 @@ func (s *PodStatistic) updateContainers(now time.Time, pod *corev1.Pod) *PodStat
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		containerStatuses[containerStatus.Name] = containerStatus
 	}
+
 	s = s.MapContainerStatistics(
 		func(containerName string, container *NonInitContainerStatistic) (*NonInitContainerStatistic, bool) {
 			containerStatus, ok := containerStatuses[containerName]

@@ -29,6 +29,7 @@ func parseEventBuffer(t *testing.T, buf *bytes.Buffer) map[string]any {
 	t.Helper()
 
 	var event map[string]any
+
 	err := json.Unmarshal(buf.Bytes(), &event)
 	require.NoError(t, err, "Failed to unmarshal JSON")
 
@@ -542,6 +543,7 @@ func (st *appLabelsTest) Test(t *testing.T) {
 	logger.Info().Func(appLabels).Msg("Test message")
 
 	event := parseEventBuffer(t, buf)
+
 	for key := range appLabelFields {
 		if expectedValue, ok := st.expectedLabels[key]; ok {
 			assert.Contains(t, event, key)
