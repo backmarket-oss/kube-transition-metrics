@@ -12,10 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func p[T any](v T) *T {
-	return &v
-}
-
 func testLogger(t *testing.T) (*zerolog.Logger, *bytes.Buffer) {
 	t.Helper()
 
@@ -55,14 +51,14 @@ func TestCommonPodLabelsAll(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "ReplicaSet",
 					Name:       "test-replicaset",
-					Controller: p(true),
+					Controller: new(true),
 				},
 			},
 		},
 		Spec: corev1.PodSpec{
 			NodeName:          "test-node",
 			PriorityClassName: "test-priority-class",
-			RuntimeClassName:  p("test-runtime-class"),
+			RuntimeClassName:  new("test-runtime-class"),
 		},
 		Status: corev1.PodStatus{
 			QOSClass: corev1.PodQOSGuaranteed,
@@ -264,12 +260,12 @@ func TestCommonPodLabelsRuntimeClass(t *testing.T) {
 	for _, test := range []commonRuntimeClassTest{
 		{
 			name:      "With",
-			className: p("test-runtime-class"),
+			className: new("test-runtime-class"),
 			expectNil: false,
 		},
 		{
 			name:      "WithEmpty",
-			className: p(""), // not sure if an empty string is valid, but the event should probably emit what is there.
+			className: new(""), // not sure if an empty string is valid, but the event should probably emit what is there.
 			expectNil: false,
 		},
 		{
@@ -327,7 +323,7 @@ func TestOwnerRefLabels(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "ReplicaSet",
 					Name:       "test-replicaset",
-					Controller: p(true),
+					Controller: new(true),
 				},
 			},
 			expectNil:        false,
@@ -343,7 +339,7 @@ func TestOwnerRefLabels(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "DaemonSet",
 					Name:       "test-daemonset",
-					Controller: p(true),
+					Controller: new(true),
 				},
 			},
 			expectNil:        false,
@@ -359,7 +355,7 @@ func TestOwnerRefLabels(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "StatefulSet",
 					Name:       "test-statefulset",
-					Controller: p(true),
+					Controller: new(true),
 				},
 			},
 			expectNil:  false,
@@ -373,7 +369,7 @@ func TestOwnerRefLabels(t *testing.T) {
 					APIVersion: "batch/v1",
 					Kind:       "Job",
 					Name:       "test-job",
-					Controller: p(true),
+					Controller: new(true),
 				},
 			},
 			expectNil:  false,
@@ -387,7 +383,7 @@ func TestOwnerRefLabels(t *testing.T) {
 					APIVersion: "custom.io/v1",
 					Kind:       "CustomResource",
 					Name:       "test-custom-resource",
-					Controller: p(false),
+					Controller: new(false),
 				},
 			},
 			expectNil: true,
@@ -399,13 +395,13 @@ func TestOwnerRefLabels(t *testing.T) {
 					APIVersion: "custom.io/v1",
 					Kind:       "CustomResource",
 					Name:       "test-custom-resource",
-					Controller: p(false),
+					Controller: new(false),
 				},
 				{
 					APIVersion: "apps/v1",
 					Kind:       "ReplicaSet",
 					Name:       "test-replicaset",
-					Controller: p(true),
+					Controller: new(true),
 				},
 			},
 			expectNil:        false,
@@ -421,7 +417,7 @@ func TestOwnerRefLabels(t *testing.T) {
 					APIVersion: "custom.io/v1",
 					Kind:       "CustomResource",
 					Name:       "test-custom-resource",
-					Controller: p(true),
+					Controller: new(true),
 				},
 			},
 			expectNil:  false,
