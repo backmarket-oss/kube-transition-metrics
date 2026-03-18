@@ -39,6 +39,7 @@ func NewStatisticEventLoop(options *options.Options) *PodStatisticEventLoop {
 		log.Panic().Msg("StatisticEventQueueLength must be greater than 0")
 	}
 
+	//nolint:gosec // We already check that options.StatisticEventQueueLength is less than 0, and panic otherwise.
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &PodStatisticEventLoop{
@@ -154,6 +155,7 @@ func NewImagePullStatisticEventLoop(options *options.Options) *ImagePullStatisti
 		log.Panic().Msg("StatisticEventQueueLength must be greater than 0")
 	}
 
+	//nolint:gosec // We already check that options.StatisticEventQueueLength is less than 0, and panic otherwise.
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &ImagePullStatisticEventLoop{
