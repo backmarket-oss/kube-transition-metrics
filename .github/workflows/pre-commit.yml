@@ -12,24 +12,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: stable
-          check-latest: true
+          go-version-file: go.mod
 
-      - name: Install golangci-lint
-        run: |
-          curl --silent --show-error --fail --location https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh |
-            sh -s -- -b "$(go env GOPATH)/bin" v2.0.2
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.3
+          install-only: true
 
       - uses: pre-commit/action@v3.0.1
         env:
