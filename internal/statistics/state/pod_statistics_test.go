@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 )
 
 func TestNewPodStatistics(t *testing.T) {
 	t.Parallel()
 
-	state := NewPodStatistics([]types.UID{})
+	state := NewPodStatistics([]apimachinerytypes.UID{})
 	assert.Equal(t, 0, state.Len(), "Expected length to be 0")
 	pod, ok := state.Get("test-uid")
 	assert.False(t, ok, "Expected to not find pod with UID test-uid")
@@ -23,8 +23,8 @@ func TestNewPodStatistics(t *testing.T) {
 func TestPodStatisticsSetAndGet(t *testing.T) {
 	t.Parallel()
 
-	state := NewPodStatistics([]types.UID{})
-	uid := types.UID("test-uid")
+	state := NewPodStatistics([]apimachinerytypes.UID{})
+	uid := apimachinerytypes.UID("test-uid")
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
@@ -62,8 +62,8 @@ func TestPodStatisticsSetAndGet(t *testing.T) {
 func TestPodStatisticsDelete(t *testing.T) {
 	t.Parallel()
 
-	state := NewPodStatistics([]types.UID{})
-	uid := types.UID("test-uid")
+	state := NewPodStatistics([]apimachinerytypes.UID{})
+	uid := apimachinerytypes.UID("test-uid")
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
@@ -83,9 +83,9 @@ func TestPodStatisticsDelete(t *testing.T) {
 func TestPodStatisticsIsBlacklisted(t *testing.T) {
 	t.Parallel()
 
-	uid := types.UID("test-uid")
-	state := NewPodStatistics([]types.UID{uid})
+	uid := apimachinerytypes.UID("test-uid")
+	state := NewPodStatistics([]apimachinerytypes.UID{uid})
 
 	assert.True(t, state.IsBlacklisted(uid), "Expected UID to be blacklisted")
-	assert.False(t, state.IsBlacklisted(types.UID("other-uid")), "Expected other UID to not be blacklisted")
+	assert.False(t, state.IsBlacklisted(apimachinerytypes.UID("other-uid")), "Expected other UID to not be blacklisted")
 }

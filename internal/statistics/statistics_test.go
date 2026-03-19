@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
+	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 )
 
 func TestNewStatisticEventHandler(t *testing.T) {
@@ -30,7 +30,7 @@ func TestNewStatisticEventHandler(t *testing.T) {
 	statisticsEventLoop.Start()
 
 	resyncEvent := &resyncEvent{
-		blacklistUIDs: []types.UID{"test-uid"},
+		blacklistUIDs: []apimachinerytypes.UID{"test-uid"},
 	}
 
 	state, err := eventloop.SendAndWait(ctx, statisticsEventLoop, resyncEvent)

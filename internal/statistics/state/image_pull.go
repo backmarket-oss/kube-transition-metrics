@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 )
 
 // PodImagePullStatistic holds the statistics for a pod image pull.
@@ -226,13 +226,13 @@ func (s *ContainerImagePullStatistic) logger() zerolog.Logger {
 
 // ImagePullStatistics holds the statistics for image pulls.
 type ImagePullStatistics struct {
-	*immutable.Map[types.UID, *PodImagePullStatistic]
+	*immutable.Map[apimachinerytypes.UID, *PodImagePullStatistic]
 }
 
 // NewImagePullStatistics creates a new ImagePullStatistics instance.
 func NewImagePullStatistics() *ImagePullStatistics {
 	return &ImagePullStatistics{
-		Map: immutable.NewMap[types.UID, *PodImagePullStatistic](nil),
+		Map: immutable.NewMap[apimachinerytypes.UID, *PodImagePullStatistic](nil),
 	}
 }
 
@@ -242,14 +242,14 @@ func (s *ImagePullStatistics) Copy() *ImagePullStatistics {
 }
 
 // Get returns the image pull statistic for the pod with the given UID, if it exists.
-func (s *ImagePullStatistics) Get(uid types.UID) (*PodImagePullStatistic, bool) {
+func (s *ImagePullStatistics) Get(uid apimachinerytypes.UID) (*PodImagePullStatistic, bool) {
 	return s.Map.Get(uid)
 }
 
 // Set updates the image pull statistic for the pod with the given UID, or adds it if it doesn't exist.
 // Set returns a new instance of the ImagePullStatistics with the updated fields.
 func (s *ImagePullStatistics) Set(
-	uid types.UID,
+	uid apimachinerytypes.UID,
 	imagePullStatistic *PodImagePullStatistic,
 ) *ImagePullStatistics {
 	s = s.Copy()
@@ -260,7 +260,7 @@ func (s *ImagePullStatistics) Set(
 
 // Delete deletes the image pull statistic for the pod with the given UID, if it exists.
 // Delete returns a new instance of the ImagePullStatistics with the updated fields.
-func (s *ImagePullStatistics) Delete(uid types.UID) *ImagePullStatistics {
+func (s *ImagePullStatistics) Delete(uid apimachinerytypes.UID) *ImagePullStatistics {
 	s = s.Copy()
 	s.Map = s.Map.Delete(uid)
 
