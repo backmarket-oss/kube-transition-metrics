@@ -190,7 +190,7 @@ func TestPodResyncKeepsTrackedPods(t *testing.T) {
 }
 
 func TestPodResyncRemovesLostPods(t *testing.T) {
-	testhelpers.ConfigureLogging(t, &options.Options{})
+	testhelpers.ConfigureLogging(t, &options.Options{LogLevel: zerolog.FatalLevel})
 
 	created := time.Now()
 	pod := newTestingPod(created)
@@ -257,7 +257,7 @@ func TestPodUpdateBlacklisted(t *testing.T) {
 }
 
 func TestPodUpdateSkipsCompletePod(t *testing.T) {
-	opts := &options.Options{}
+	opts := &options.Options{LogLevel: zerolog.FatalLevel}
 	testhelpers.ConfigureLogging(t, opts)
 
 	created := time.Now()
@@ -427,7 +427,7 @@ func TestImagePullUpdateAddsStatistic(t *testing.T) {
 }
 
 func TestImagePullUpdateInvalidFieldPath(t *testing.T) {
-	opts := &options.Options{}
+	opts := &options.Options{LogLevel: zerolog.FatalLevel}
 	testhelpers.ConfigureLogging(t, opts)
 
 	pod := newTestingPod(time.Now())
