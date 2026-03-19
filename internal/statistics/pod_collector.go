@@ -8,6 +8,7 @@ import (
 
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
@@ -21,48 +22,59 @@ import (
 	watch_tools "k8s.io/client-go/tools/watch"
 )
 
-// PodCollector uses the Kubernetes Watch API to monitor for all changes on Pods
-// and send statistic events to the StatisticEventHandler to track created,
+// podCollector uses the Kubernetes Watch API to monitor for all changes on Pods
+// and send statistic events to the statistic event loop to track created,
 // modified, and deleted Pods during their lifecycles.
-type PodCollector struct {
+type podCollector struct {
 	// options are the options used to configure the PodCollector.
 	options *options.Options
 
 	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle pod statistic
 	// states.
-	statisticEventLoop *PodStatisticEventLoop
+	statisticEventLoop types.PodStatisticEventLoop
 
 	// imagePullEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle image pull
 	// statistic states.
-	imagePullEventLoop *ImagePullStatisticEventLoop
+	imagePullEventLoop types.ImagePullStatisticEventLoop
 
-	// imagePullCollectors is a map of [*imagePullCollector] instances for each Pod [apimachinerytypes.UID].
-	// Keys are [apimachinerytypes.UID] and values are [*imagePullCollector].
+	// newImagePullCollector is a function that creates (but does not start) a new imagePullCollector instance.
+	// It is used to allow mocking in tests and to provide a clear contract for the collector's behavior.
+	newImagePullCollector imagePullCollectorFactory
+
+	// imagePullCollectors is a map of [types.ImagePullCollector] instances for each Pod [apimachinerytypes.UID].
+	// Keys are [apimachinerytypes.UID] and values are [types.ImagePullCollector].
 	// Moving the imagePullCollectors to an event loop to avoid having to handle concurrent access would simplify the code
 	// and make it easier to reason about.
 	imagePullCollectors *sync.Map
 }
 
-// NewPodCollector creates a new PodCollector object using the provided
-// StatisticEventHandler.
+// NewPodCollector creates a new podCollector using the provided statistic event loops.
+//
+// The returned *podCollector implements [types.PodCollector].
 func NewPodCollector(
-	options *options.Options,
-	statisticEventLoop *PodStatisticEventLoop,
-	imagePullEventLoop *ImagePullStatisticEventLoop,
-) *PodCollector {
-	return &PodCollector{
-		options:             options,
-		statisticEventLoop:  statisticEventLoop,
-		imagePullEventLoop:  imagePullEventLoop,
+	opts *options.Options,
+	statisticEventLoop types.PodStatisticEventLoop,
+	imagePullEventLoop types.ImagePullStatisticEventLoop,
+) *podCollector {
+	return &podCollector{
+		options:            opts,
+		statisticEventLoop: statisticEventLoop,
+		imagePullEventLoop: imagePullEventLoop,
+		newImagePullCollector: func(
+			options *options.Options,
+			el types.ImagePullStatisticEventLoop,
+			pod *corev1.Pod,
+		) types.ImagePullCollector {
+			return newImagePullCollector(options, el, pod)
+		},
 		imagePullCollectors: &sync.Map{},
 	}
 }
 
-// Run watches the Kubernetes Pods objects and reports them to the
-// StatisticEventHandler used to initialize the PodCollector. It is blocking and
-// should be run in another goroutine to the StatisticEventHandler and other
-// collectors.
-func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
+// Run watches the Kubernetes Pods objects and reports them to the statistic
+// event loop. It is blocking and should be run in another goroutine to the
+// statistic event loop and other collectors.
+func (w *podCollector) Run(clientset *kubernetes.Clientset) {
 	for {
 		resyncUIDs, resourceVersion, err := w.collectInitialPods(clientset)
 		if err != nil {
@@ -102,7 +114,7 @@ func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
 }
 
 // handlePod processes a Pod event and sends the appropriate statistic event to the statistic event loop.
-func (w *PodCollector) handlePod(
+func (w *podCollector) handlePod(
 	clientset *kubernetes.Clientset,
 	eventType watch.EventType,
 	pod *corev1.Pod,
@@ -148,19 +160,19 @@ func (w *PodCollector) handlePod(
 
 // addImagePullCollector adds a new image pull collector for the given pod UID.
 // If an image pull collector already exists for the given UID, it is replaced and the old one is cancelled.
-func (w *PodCollector) addImagePullCollector(
+func (w *podCollector) addImagePullCollector(
 	clientset *kubernetes.Clientset,
 	pod *corev1.Pod,
 ) {
-	collector := newImagePullCollector(w.options, w.imagePullEventLoop, pod)
+	collector := w.newImagePullCollector(w.options, w.imagePullEventLoop, pod)
 	// Cancel any image pull collectors before removing them from the map
 	if existing, ok := w.imagePullCollectors.Swap(pod.UID, collector); ok {
-		existingCollector, isCollector := existing.(*imagePullCollector)
+		existingCollector, isCollector := existing.(types.ImagePullCollector)
 		if !isCollector {
 			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
 		}
 
-		go existingCollector.cancel("pod replaced")
+		go existingCollector.Cancel("pod replaced")
 	}
 
 	go func() {
@@ -171,20 +183,20 @@ func (w *PodCollector) addImagePullCollector(
 }
 
 // cancelImagePullCollector cancels and removes the image pull collector for the given pod UID.
-func (w *PodCollector) cancelImagePullCollector(uid apimachinerytypes.UID, reason string) {
+func (w *podCollector) cancelImagePullCollector(uid apimachinerytypes.UID, reason string) {
 	if existing, ok := w.imagePullCollectors.LoadAndDelete(uid); ok {
-		collector, ok := existing.(*imagePullCollector)
+		collector, ok := existing.(types.ImagePullCollector)
 		if !ok {
-			log.Panic().Any("value", existing).Msgf("Non-imagePullCollector found in imagePullCollectors map")
+			log.Panic().Any("value", existing).Msgf("Non-ImagePullCollector found in imagePullCollectors map")
 		}
 
-		go collector.cancel(reason)
+		go collector.Cancel(reason)
 	}
 }
 
 // getWatcher creates a new RetryWatcher for the Pod resource.
 // It uses the provided resourceVersion to start watching from that version.
-func (w *PodCollector) getWatcher(
+func (w *podCollector) getWatcher(
 	ctx context.Context,
 	clientset *kubernetes.Clientset,
 	resourceVersion string,
@@ -205,7 +217,7 @@ func (w *PodCollector) getWatcher(
 }
 
 // watch performs the actual watch on the Kubernetes API for all Pod objects.
-func (w *PodCollector) watch(
+func (w *podCollector) watch(
 	clientset *kubernetes.Clientset,
 	resourceVersion string,
 ) {
@@ -253,11 +265,11 @@ func (w *PodCollector) watch(
 }
 
 // collectInitialPods generates a list of Pod UIDs currently existing on the
-// cluster. This is used to filter pre-existing Pods by the
-// StatisticEventHandler to avoid generating inaccurate or incomplete metrics.
+// cluster. This is used to filter pre-existing Pods by the statistic event
+// loop to avoid generating inaccurate or incomplete metrics.
 // It returns the list of Pod UIDs, the resource version for these UIDs, and an
 // error if one occurred.
-func (w *PodCollector) collectInitialPods(
+func (w *podCollector) collectInitialPods(
 	clientset *kubernetes.Clientset,
 ) ([]apimachinerytypes.UID, string, error) {
 	timeOut := w.options.KubeWatchTimeout

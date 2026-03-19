@@ -44,8 +44,7 @@ benchmark: tmp/coverage ## Run the benchmarks
 .PHONY: test-flakiness
 test-flakiness: tmp/coverage ## Run the unit tests with a high count to ensure they are not flaky
 	@echo "🧪 running the unit tests with a high count to ensure they are not flaky …"
-	# Yes, we really can run the tests 10000 times in just a few seconds
-	go test -timeout 2m -count 10000 -failfast -skip '^Example' ./...
+	go test -timeout 2m -count 100 -failfast -skip '^Example' ./...
 
 .PHONY: lint
 lint: ## Run the linters

@@ -7,6 +7,7 @@ import (
 
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -32,16 +33,22 @@ type imagePullCollector struct {
 
 	// statisticEventLoop is the [github.com/Izzette/go-safeconcurrency/types.EventLoop] used to handle image pull
 	// statistic states.
-	statisticEventLoop *ImagePullStatisticEventLoop
+	statisticEventLoop types.ImagePullStatisticEventLoop
 
 	// pod is the Kubernetes pod for which image pull events are being collected.
 	pod *corev1.Pod
 }
 
+// imagePullCollectorFactory is a function type that creates a new imagePullCollector instance.
+// It is used to allow mocking in tests and to provide a clear contract for the collector's behavior.
+type imagePullCollectorFactory func(
+	*options.Options, types.ImagePullStatisticEventLoop, *corev1.Pod,
+) types.ImagePullCollector
+
 // newImagePullCollector creates (but does not start) a new imagePullCollector instance.
 func newImagePullCollector(
 	options *options.Options,
-	statisticEventLoop *ImagePullStatisticEventLoop,
+	statisticEventLoop types.ImagePullStatisticEventLoop,
 	pod *corev1.Pod,
 ) *imagePullCollector {
 	return &imagePullCollector{
@@ -55,8 +62,10 @@ func newImagePullCollector(
 
 // Run starts the imagePullCollector and begins watching for image pull events.
 // It does not start a new goroutine and will block until the image pull is complete or the collector is canceled.
+//
+// Run implements [types.ImagePullCollector.Run].
 func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
-	logger := c.logger()
+	logger := c.Logger()
 
 	logger.Debug().Msg("Started ImagePullCollector ...")
 	prommetrics.ImagePullCollectorRoutines.Inc()
@@ -72,7 +81,7 @@ func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	}()
 
 	for {
-		if c.watch(clientset) {
+		if c.Watch(clientset) {
 			return
 		}
 
@@ -81,9 +90,11 @@ func (c *imagePullCollector) Run(clientset *kubernetes.Clientset) {
 	}
 }
 
-// handleWatchEvent processes a watch event and returns true if the watch should be stopped.
-func (c *imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
-	logger := c.logger()
+// HandleWatchEvent processes a watch event and returns true if the watch should be stopped.
+//
+// HandleWatchEvent implements [types.ImagePullCollector.HandleWatchEvent].
+func (c *imagePullCollector) HandleWatchEvent(watchEvent watch.Event) bool {
+	logger := c.Logger()
 
 	var (
 		event   *corev1.Event
@@ -99,17 +110,19 @@ func (c *imagePullCollector) handleWatchEvent(watchEvent watch.Event) bool {
 		logger.Panic().Msgf("Watch event is not an Event: %+v", watchEvent)
 	}
 
-	c.handleEvent(watchEvent.Type, event)
+	c.HandleEvent(watchEvent.Type, event)
 
 	return false
 }
 
-// handleEvent handles a Kubernetes event and publishes it to the statistic event loop if it is an image pull event.
-func (c *imagePullCollector) handleEvent(
+// HandleEvent handles a Kubernetes event and publishes it to the statistic event loop if it is an image pull event.
+//
+// HandleEvent implements [types.ImagePullCollector.HandleEvent].
+func (c *imagePullCollector) HandleEvent(
 	eventType watch.EventType,
 	event *corev1.Event,
 ) {
-	logger := c.logger()
+	logger := c.Logger()
 
 	if eventType != watch.Added {
 		logger.Debug().Msgf("Ignoring non-Added event: %+v", eventType)
@@ -128,13 +141,15 @@ func (c *imagePullCollector) handleEvent(
 	}
 }
 
-// watch performs a watch on the Kubernetes API for image pull events related to the pod.
-func (c *imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
-	logger := c.logger()
+// Watch performs a Watch on the Kubernetes API for image pull events related to the pod.
+//
+// Watch implements [types.ImagePullCollector.Watch].
+func (c *imagePullCollector) Watch(clientset *kubernetes.Clientset) bool {
+	logger := c.Logger()
 
 	// TODO: use a ("k8s.io/client-go/tools/watch").RetryWatcher to allow fetching
 	// existing events.
-	watchOpts := c.watchOptions()
+	watchOpts := c.WatchOptions()
 
 	watcher, err :=
 		clientset.CoreV1().Events(c.pod.Namespace).Watch(context.TODO(), watchOpts)
@@ -163,7 +178,7 @@ func (c *imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 				return false
 			}
 
-			shouldBreak := c.handleWatchEvent(watchEvent)
+			shouldBreak := c.HandleWatchEvent(watchEvent)
 			prommetrics.ImagePullWatchEvents.
 				With(prometheus.Labels{"event_type": string(watchEvent.Type)}).
 				Inc()
@@ -175,8 +190,10 @@ func (c *imagePullCollector) watch(clientset *kubernetes.Clientset) bool {
 	}
 }
 
-// watchOptions builds the list options for the watch request.
-func (c *imagePullCollector) watchOptions() metav1.ListOptions {
+// WatchOptions builds the list options for the watch request.
+//
+// WatchOptions implements [types.ImagePullCollector.WatchOptions].
+func (c *imagePullCollector) WatchOptions() metav1.ListOptions {
 	timeOut := c.options.KubeWatchTimeout
 	watchOps := metav1.ListOptions{
 		TimeoutSeconds: &timeOut,
@@ -192,10 +209,12 @@ func (c *imagePullCollector) watchOptions() metav1.ListOptions {
 	return watchOps
 }
 
-// cancel cancels the image pull collector.
+// Cancel cancels the image pull collector.
 // Should be run in goroutine to avoid blocking.
-func (c *imagePullCollector) cancel(reason string) {
-	logger := c.logger()
+//
+// Cancel implements [types.ImagePullCollector.Cancel].
+func (c *imagePullCollector) Cancel(reason string) {
+	logger := c.Logger()
 
 	// Sleep for a bit to allow any pending events to flush.
 	// This is a workaround for the fact that the Kubernetes Watch API does not guarantee that all events related to a pod
@@ -215,10 +234,12 @@ func (c *imagePullCollector) cancel(reason string) {
 	}
 }
 
-// logger returns a logger scoped to the image pull collector.
+// Logger returns a Logger scoped to the image pull collector.
 //
-// TODO(Izzette): Use a context.Context to propagate the logger fields.
-func (c *imagePullCollector) logger() *zerolog.Logger {
+// TODO(Izzette): Use a context.Context to propagate the Logger fields.
+//
+// Logger implements [types.ImagePullCollector.Logger].
+func (c *imagePullCollector) Logger() *zerolog.Logger {
 	logger := log.With().
 		Str("subsystem", "image_pull_collector").
 		Str("kube_namespace", c.pod.Namespace).

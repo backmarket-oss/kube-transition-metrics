@@ -21,8 +21,8 @@ import (
 	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 )
 
-// PodStatisticEventLoop loops over pod statistic events sent by collectors to track and update metrics.
-type PodStatisticEventLoop struct {
+// podStatisticEventLoop loops over pod statistic events sent by collectors to track and update metrics.
+type podStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.PodStatistics]
 
 	options      *options.Options
@@ -30,9 +30,12 @@ type PodStatisticEventLoop struct {
 	metricOutput io.Writer
 }
 
-// NewStatisticEventLoop creates a new StatisticEventHandler which filters out events for the provided
+// NewStatisticEventLoop creates a new podStatisticEventLoop which filters out events for the provided
 // initialSyncBlacklist Pod UIDs.
-func NewStatisticEventLoop(options *options.Options, metricOutput io.Writer) *PodStatisticEventLoop {
+//
+// The returned *podStatisticEventLoop implements
+// [github.com/BackMarket-oss/kube-transition-metrics/internal/statistics/types.PodStatisticEventLoop].
+func NewStatisticEventLoop(options *options.Options, metricOutput io.Writer) *podStatisticEventLoop {
 	s := state.NewPodStatistics([]apimachinerytypes.UID{})
 	snapshot := snapshot.NewCopyable[*state.PodStatistics](s)
 
@@ -43,7 +46,7 @@ func NewStatisticEventLoop(options *options.Options, metricOutput io.Writer) *Po
 	//nolint:gosec // We already check that options.StatisticEventQueueLength is less than 0, and panic otherwise.
 	buffer := uint(options.StatisticEventQueueLength)
 
-	return &PodStatisticEventLoop{
+	return &podStatisticEventLoop{
 		options:      options,
 		EventLoop:    eventloop.NewBuffered[*state.PodStatistics](snapshot, buffer),
 		metricOutput: metricOutput,
@@ -51,8 +54,8 @@ func NewStatisticEventLoop(options *options.Options, metricOutput io.Writer) *Po
 }
 
 // Start starts the event loop and begins watching the state of the event loop.
-// Start implements [eventloop.EventLoop.Start].
-func (el *PodStatisticEventLoop) Start() {
+// Start implements [safeconcurrencytypes.EventLoop.Start].
+func (el *podStatisticEventLoop) Start() {
 	el.EventLoop.Start()
 	// EventLoop.Start() will panic if the event loop is already started, so we can be sure to do this assignment only
 	// once.
@@ -60,16 +63,16 @@ func (el *PodStatisticEventLoop) Start() {
 }
 
 // Close closes the event loop and waits for the watcher to finish.
-// Close implements [eventloop.EventLoop.Close].
-func (el *PodStatisticEventLoop) Close() {
+// Close implements [safeconcurrencytypes.EventLoop.Close].
+func (el *podStatisticEventLoop) Close() {
 	el.EventLoop.Close()
 	// Wait for the watcher to finish too.
 	<-el.watcherChan
 }
 
 // Send sends an event to the event loop and tracks the time it took to process the event.
-// Send implements [eventloop.EventLoop.Send].
-func (el *PodStatisticEventLoop) Send(
+// Send implements [safeconcurrencytypes.EventLoop.Send].
+func (el *podStatisticEventLoop) Send(
 	ctx context.Context,
 	event safeconcurrencytypes.Event[*state.PodStatistics],
 ) (safeconcurrencytypes.GenerationID, error) {
@@ -94,7 +97,8 @@ func (el *PodStatisticEventLoop) Send(
 }
 
 // PodUpdate sends an event to update the pod statistic for a pod based on the latest Kubernetes Pod.
-func (el *PodStatisticEventLoop) PodUpdate(
+// PodUpdate implements [types.PodStatisticEventLoop.PodUpdate].
+func (el *podStatisticEventLoop) PodUpdate(
 	ctx context.Context,
 	pod *corev1.Pod,
 ) (safeconcurrencytypes.GenerationID, error) {
@@ -108,7 +112,8 @@ func (el *PodStatisticEventLoop) PodUpdate(
 
 // PodDelete sends an event to stop tracking the pod statistic for a pod after it has been deleted from the Kubernetes
 // API.
-func (el *PodStatisticEventLoop) PodDelete(
+// PodDelete implements [types.PodStatisticEventLoop.PodDelete].
+func (el *podStatisticEventLoop) PodDelete(
 	ctx context.Context,
 	pod *corev1.Pod,
 ) (safeconcurrencytypes.GenerationID, error) {
@@ -120,7 +125,8 @@ func (el *PodStatisticEventLoop) PodDelete(
 }
 
 // PodResync sends an event to resync the event loop if the Kubernetes Watch API times out and events are lost.
-func (el *PodStatisticEventLoop) PodResync(
+// PodResync implements [types.PodStatisticEventLoop.PodResync].
+func (el *podStatisticEventLoop) PodResync(
 	ctx context.Context,
 	blacklistUIDs []apimachinerytypes.UID,
 ) (safeconcurrencytypes.GenerationID, error) {
@@ -131,7 +137,7 @@ func (el *PodStatisticEventLoop) PodResync(
 }
 
 // watcher watches the state of the event loop and updates the prometheus metrics.
-func (el *PodStatisticEventLoop) watcher(
+func (el *podStatisticEventLoop) watcher(
 	ctx context.Context,
 	s safeconcurrencytypes.StateSnapshot[*state.PodStatistics],
 ) bool {
@@ -140,9 +146,9 @@ func (el *PodStatisticEventLoop) watcher(
 	return true
 }
 
-// ImagePullStatisticEventLoop loops over image pull statistic events sent by collectors to track and update metrics for
+// imagePullStatisticEventLoop loops over image pull statistic events sent by collectors to track and update metrics for
 // image pulls.
-type ImagePullStatisticEventLoop struct {
+type imagePullStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.ImagePullStatistics]
 
 	options      *options.Options
@@ -151,7 +157,10 @@ type ImagePullStatisticEventLoop struct {
 }
 
 // NewImagePullStatisticEventLoop creates a new ImagePullStatisticEventLoop.
-func NewImagePullStatisticEventLoop(options *options.Options, metricOutput io.Writer) *ImagePullStatisticEventLoop {
+//
+// The returned *imagePullStatisticEventLoop implements
+// [github.com/BackMarket-oss/kube-transition-metrics/internal/statistics/types.ImagePullStatisticEventLoop].
+func NewImagePullStatisticEventLoop(options *options.Options, metricOutput io.Writer) *imagePullStatisticEventLoop {
 	s := state.NewImagePullStatistics()
 	snapshot := snapshot.NewCopyable[*state.ImagePullStatistics](s)
 
@@ -162,7 +171,7 @@ func NewImagePullStatisticEventLoop(options *options.Options, metricOutput io.Wr
 	//nolint:gosec // We already check that options.StatisticEventQueueLength is less than 0, and panic otherwise.
 	buffer := uint(options.StatisticEventQueueLength)
 
-	return &ImagePullStatisticEventLoop{
+	return &imagePullStatisticEventLoop{
 		EventLoop:    eventloop.NewBuffered[*state.ImagePullStatistics](snapshot, buffer),
 		options:      options,
 		metricOutput: metricOutput,
@@ -170,7 +179,8 @@ func NewImagePullStatisticEventLoop(options *options.Options, metricOutput io.Wr
 }
 
 // Start starts the event loop and begins watching the state of the event loop.
-func (el *ImagePullStatisticEventLoop) Start() {
+// Start implements [safeconcurrencytypes.EventLoop.Start].
+func (el *imagePullStatisticEventLoop) Start() {
 	el.EventLoop.Start()
 	// EventLoop.Start() will panic if the event loop is already started, so we can be sure to do this assignment only
 	// once.
@@ -178,14 +188,16 @@ func (el *ImagePullStatisticEventLoop) Start() {
 }
 
 // Close closes the event loop and waits for the watcher to finish.
-func (el *ImagePullStatisticEventLoop) Close() {
+// Close implements [safeconcurrencytypes.EventLoop.Close].
+func (el *imagePullStatisticEventLoop) Close() {
 	el.EventLoop.Close()
 	// Wait for the watcher to finish too.
 	<-el.watcherChan
 }
 
 // Send sends an event to the event loop and tracks the time it took to process the event.
-func (el *ImagePullStatisticEventLoop) Send(
+// Send implements [safeconcurrencytypes.EventLoop.Send].
+func (el *imagePullStatisticEventLoop) Send(
 	ctx context.Context,
 	event safeconcurrencytypes.Event[*state.ImagePullStatistics],
 ) (safeconcurrencytypes.GenerationID, error) {
@@ -211,7 +223,8 @@ func (el *ImagePullStatisticEventLoop) Send(
 
 // ImagePullUpdate sends an event to update the image pull statistic for a pod from the latest Kubernetes Event for
 // image pulling related events.
-func (el *ImagePullStatisticEventLoop) ImagePullUpdate(
+// ImagePullUpdate implements [types.ImagePullStatisticEventLoop.ImagePullUpdate].
+func (el *imagePullStatisticEventLoop) ImagePullUpdate(
 	ctx context.Context,
 	pod *corev1.Pod,
 	k8sEvent *corev1.Event,
@@ -226,7 +239,8 @@ func (el *ImagePullStatisticEventLoop) ImagePullUpdate(
 
 // ImagePullDelete sends an event to delete the image pull statistic for a pod after the image pull is no longer being
 // tracked.
-func (el *ImagePullStatisticEventLoop) ImagePullDelete(
+// ImagePullDelete implements [types.ImagePullStatisticEventLoop.ImagePullDelete].
+func (el *imagePullStatisticEventLoop) ImagePullDelete(
 	ctx context.Context,
 	pod *corev1.Pod,
 ) (safeconcurrencytypes.GenerationID, error) {
@@ -238,7 +252,7 @@ func (el *ImagePullStatisticEventLoop) ImagePullDelete(
 }
 
 // watcher watches the state of the event loop and updates the prometheus metrics.
-func (el *ImagePullStatisticEventLoop) watcher(
+func (el *imagePullStatisticEventLoop) watcher(
 	ctx context.Context,
 	s safeconcurrencytypes.StateSnapshot[*state.ImagePullStatistics],
 ) bool {
