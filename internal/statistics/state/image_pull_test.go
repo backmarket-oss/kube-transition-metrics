@@ -6,13 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/options"
+	"github.com/BackMarket-oss/kube-transition-metrics/internal/testhelpers"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestNewImagePullStatistic(t *testing.T) {
-	configureLogging(t)
+	testhelpers.ConfigureLogging(t, &options.Options{})
 
 	// Define a test pod and container
 	container := corev1.Container{
@@ -38,7 +40,7 @@ func TestNewImagePullStatistic(t *testing.T) {
 }
 
 func TestImagePullStatisticLog(t *testing.T) {
-	configureLogging(t)
+	testhelpers.ConfigureLogging(t, &options.Options{})
 
 	// Create a buffer to capture the output
 	buf := &bytes.Buffer{}
