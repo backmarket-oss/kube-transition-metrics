@@ -1,6 +1,7 @@
 package statistics
 
 import (
+	"io"
 	"testing"
 
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/logging"
@@ -23,7 +24,7 @@ func TestNewStatisticEventHandler(t *testing.T) {
 	logging.Configure()
 	logging.SetOptions(options)
 
-	statisticsEventLoop := NewStatisticEventLoop(options)
+	statisticsEventLoop := NewStatisticEventLoop(options, io.Discard)
 	defer statisticsEventLoop.Close()
 
 	statisticsEventLoop.Start()

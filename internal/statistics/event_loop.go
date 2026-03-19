@@ -25,13 +25,14 @@ import (
 type PodStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.PodStatistics]
 
-	options     *options.Options
-	watcherChan <-chan struct{}
+	options      *options.Options
+	watcherChan  <-chan struct{}
+	metricOutput io.Writer
 }
 
 // NewStatisticEventLoop creates a new StatisticEventHandler which filters out events for the provided
 // initialSyncBlacklist Pod UIDs.
-func NewStatisticEventLoop(options *options.Options) *PodStatisticEventLoop {
+func NewStatisticEventLoop(options *options.Options, metricOutput io.Writer) *PodStatisticEventLoop {
 	s := state.NewPodStatistics([]types.UID{})
 	snapshot := snapshot.NewCopyable[*state.PodStatistics](s)
 
@@ -43,8 +44,9 @@ func NewStatisticEventLoop(options *options.Options) *PodStatisticEventLoop {
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &PodStatisticEventLoop{
-		options:   options,
-		EventLoop: eventloop.NewBuffered[*state.PodStatistics](snapshot, buffer),
+		options:      options,
+		EventLoop:    eventloop.NewBuffered[*state.PodStatistics](snapshot, buffer),
+		metricOutput: metricOutput,
 	}
 }
 
@@ -100,7 +102,7 @@ func (el *PodStatisticEventLoop) PodUpdate(
 		pod:       pod,
 		eventTime: time.Now(),
 		options:   el.options,
-		output:    metricOutput,
+		output:    el.metricOutput,
 	})
 }
 
@@ -113,6 +115,7 @@ func (el *PodStatisticEventLoop) PodDelete(
 	return el.Send(ctx, &podDeleteEvent{
 		options: el.options,
 		pod:     pod,
+		output:  el.metricOutput,
 	})
 }
 
@@ -123,7 +126,7 @@ func (el *PodStatisticEventLoop) PodResync(
 ) (safeconcurrencytypes.GenerationID, error) {
 	return el.Send(ctx, &resyncEvent{
 		blacklistUIDs: blacklistUIDs,
-		output:        metricOutput,
+		output:        el.metricOutput,
 	})
 }
 
@@ -142,12 +145,13 @@ func (el *PodStatisticEventLoop) watcher(
 type ImagePullStatisticEventLoop struct {
 	safeconcurrencytypes.EventLoop[*state.ImagePullStatistics]
 
-	options     *options.Options
-	watcherChan <-chan struct{}
+	options      *options.Options
+	watcherChan  <-chan struct{}
+	metricOutput io.Writer
 }
 
 // NewImagePullStatisticEventLoop creates a new ImagePullStatisticEventLoop.
-func NewImagePullStatisticEventLoop(options *options.Options) *ImagePullStatisticEventLoop {
+func NewImagePullStatisticEventLoop(options *options.Options, metricOutput io.Writer) *ImagePullStatisticEventLoop {
 	s := state.NewImagePullStatistics()
 	snapshot := snapshot.NewCopyable[*state.ImagePullStatistics](s)
 
@@ -159,8 +163,9 @@ func NewImagePullStatisticEventLoop(options *options.Options) *ImagePullStatisti
 	buffer := uint(options.StatisticEventQueueLength)
 
 	return &ImagePullStatisticEventLoop{
-		EventLoop: eventloop.NewBuffered[*state.ImagePullStatistics](snapshot, buffer),
-		options:   options,
+		EventLoop:    eventloop.NewBuffered[*state.ImagePullStatistics](snapshot, buffer),
+		options:      options,
+		metricOutput: metricOutput,
 	}
 }
 
@@ -214,7 +219,7 @@ func (el *ImagePullStatisticEventLoop) ImagePullUpdate(
 	return el.Send(ctx, &imagePullUpdateEvent{
 		pod:      pod,
 		k8sEvent: k8sEvent,
-		output:   metricOutput,
+		output:   el.metricOutput,
 		options:  el.options,
 	})
 }
@@ -228,6 +233,7 @@ func (el *ImagePullStatisticEventLoop) ImagePullDelete(
 	return el.Send(ctx, &deleteImagePullEvent{
 		options: el.options,
 		pod:     pod,
+		output:  el.metricOutput,
 	})
 }
 
