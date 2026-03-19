@@ -11,6 +11,7 @@ import (
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/prommetrics"
 	"github.com/BackMarket-oss/kube-transition-metrics/internal/statistics"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -79,12 +80,14 @@ func main() {
 		log.Panic().Err(err).Msg("Failed to build kubernetes client")
 	}
 
-	podStatisticEventLoop := statistics.NewStatisticEventLoop(options)
+	metricOutput := zerolog.MultiLevelWriter(os.Stdout, logging.NewValidationWriter())
+
+	podStatisticEventLoop := statistics.NewStatisticEventLoop(options, metricOutput)
 	defer podStatisticEventLoop.Close()
 
 	podStatisticEventLoop.Start()
 
-	imagePullStatisticEventLoop := statistics.NewImagePullStatisticEventLoop(options)
+	imagePullStatisticEventLoop := statistics.NewImagePullStatisticEventLoop(options, metricOutput)
 	defer imagePullStatisticEventLoop.Close()
 
 	imagePullStatisticEventLoop.Start()
