@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 )
 
 // PodStatistic holds the transition statistics for a pod.
@@ -374,15 +374,15 @@ func (s *PodStatistic) updateContainers(now time.Time, pod *corev1.Pod) *PodStat
 
 // PodStatistics implements [github.com/Izzette/go-safeconcurrency/api/types.Copyable].
 type PodStatistics struct {
-	blacklistUIDs immutable.Set[types.UID]
-	statistics    *immutable.Map[types.UID, *PodStatistic]
+	blacklistUIDs immutable.Set[apimachinerytypes.UID]
+	statistics    *immutable.Map[apimachinerytypes.UID, *PodStatistic]
 }
 
 // NewPodStatistics creates a new PodStatistics with the provided blacklist.
-func NewPodStatistics(blacklistUIDs []types.UID) *PodStatistics {
+func NewPodStatistics(blacklistUIDs []apimachinerytypes.UID) *PodStatistics {
 	return &PodStatistics{
 		blacklistUIDs: immutable.NewSet(nil, blacklistUIDs...),
-		statistics:    &immutable.Map[types.UID, *PodStatistic]{},
+		statistics:    &immutable.Map[apimachinerytypes.UID, *PodStatistic]{},
 	}
 }
 
@@ -398,12 +398,12 @@ func (eh *PodStatistics) Len() int {
 }
 
 // All returns an iterator for each pod statistic in the pod statistics.
-func (eh *PodStatistics) All() iter.Seq2[types.UID, *PodStatistic] {
+func (eh *PodStatistics) All() iter.Seq2[apimachinerytypes.UID, *PodStatistic] {
 	return eh.Each
 }
 
-// Each is an [iter.Seq2] of the pod UID ([types.UID]) and the pod statistic ([*PodStatistic]).
-func (eh *PodStatistics) Each(yield func(types.UID, *PodStatistic) bool) {
+// Each is an [iter.Seq2] of the pod UID ([apimachinerytypes.UID]) and the pod statistic ([*PodStatistic]).
+func (eh *PodStatistics) Each(yield func(apimachinerytypes.UID, *PodStatistic) bool) {
 	statistics := eh.statistics.Iterator()
 	for !statistics.Done() {
 		uid, statistic, ok := statistics.Next()
@@ -422,7 +422,7 @@ func (eh *PodStatistics) Each(yield func(types.UID, *PodStatistic) bool) {
 // If the function returns false, the iteration is stopped.
 // It returns a new instance of the pod statistics with the updated pod statistics.
 func (eh *PodStatistics) Map(
-	apply func(types.UID, *PodStatistic) (*PodStatistic, bool),
+	apply func(apimachinerytypes.UID, *PodStatistic) (*PodStatistic, bool),
 ) *PodStatistics {
 	// We will return a copy of the pod statistics, so that we can safely update the pod statistics in the event loop.
 	// As this type is immutable, we should shadow the receiver to avoid modifying the original instance.
@@ -443,13 +443,13 @@ func (eh *PodStatistics) Map(
 }
 
 // Get returns the pod statistic for the given UID. If the UID is not found,.
-func (eh *PodStatistics) Get(uid types.UID) (*PodStatistic, bool) {
+func (eh *PodStatistics) Get(uid apimachinerytypes.UID) (*PodStatistic, bool) {
 	// The pod statistic is immutable, so we can just return it.
 	return eh.statistics.Get(uid)
 }
 
 // Set sets the pod statistic for the given UID.
-func (eh *PodStatistics) Set(uid types.UID, statistic *PodStatistic) *PodStatistics {
+func (eh *PodStatistics) Set(uid apimachinerytypes.UID, statistic *PodStatistic) *PodStatistics {
 	eh = eh.Copy()
 	eh.statistics = eh.statistics.Set(uid, statistic)
 
@@ -457,7 +457,7 @@ func (eh *PodStatistics) Set(uid types.UID, statistic *PodStatistic) *PodStatist
 }
 
 // Delete deletes the pod statistic for the given UID, if it exists.
-func (eh *PodStatistics) Delete(uid types.UID) *PodStatistics {
+func (eh *PodStatistics) Delete(uid apimachinerytypes.UID) *PodStatistics {
 	eh = eh.Copy()
 	eh.statistics = eh.statistics.Delete(uid)
 
@@ -465,6 +465,6 @@ func (eh *PodStatistics) Delete(uid types.UID) *PodStatistics {
 }
 
 // IsBlacklisted checks if the given UID is in the blacklist.
-func (eh *PodStatistics) IsBlacklisted(uid types.UID) bool {
+func (eh *PodStatistics) IsBlacklisted(uid apimachinerytypes.UID) bool {
 	return eh.blacklistUIDs.Has(uid)
 }

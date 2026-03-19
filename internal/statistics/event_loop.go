@@ -18,7 +18,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 )
 
 // PodStatisticEventLoop loops over pod statistic events sent by collectors to track and update metrics.
@@ -33,7 +33,7 @@ type PodStatisticEventLoop struct {
 // NewStatisticEventLoop creates a new StatisticEventHandler which filters out events for the provided
 // initialSyncBlacklist Pod UIDs.
 func NewStatisticEventLoop(options *options.Options, metricOutput io.Writer) *PodStatisticEventLoop {
-	s := state.NewPodStatistics([]types.UID{})
+	s := state.NewPodStatistics([]apimachinerytypes.UID{})
 	snapshot := snapshot.NewCopyable[*state.PodStatistics](s)
 
 	if options.StatisticEventQueueLength < 0 {
@@ -122,7 +122,7 @@ func (el *PodStatisticEventLoop) PodDelete(
 // PodResync sends an event to resync the event loop if the Kubernetes Watch API times out and events are lost.
 func (el *PodStatisticEventLoop) PodResync(
 	ctx context.Context,
-	blacklistUIDs []types.UID,
+	blacklistUIDs []apimachinerytypes.UID,
 ) (safeconcurrencytypes.GenerationID, error) {
 	return el.Send(ctx, &resyncEvent{
 		blacklistUIDs: blacklistUIDs,
@@ -346,7 +346,7 @@ func (e *podDeleteEvent) Dispatch(
 // resyncEvent is used to resync the event loop if the Kubernetes Watch API times out, and events are lost.
 // resyncEvent implements [safeconcurrencytypes.Event].
 type resyncEvent struct {
-	blacklistUIDs []types.UID
+	blacklistUIDs []apimachinerytypes.UID
 	output        io.Writer
 }
 
@@ -355,13 +355,13 @@ func (e *resyncEvent) Dispatch(
 	_ safeconcurrencytypes.GenerationID,
 	podStatistics *state.PodStatistics,
 ) *state.PodStatistics {
-	blacklistSet := make(map[types.UID]struct{}, len(e.blacklistUIDs))
+	blacklistSet := make(map[apimachinerytypes.UID]struct{}, len(e.blacklistUIDs))
 	for _, uid := range e.blacklistUIDs {
 		blacklistSet[uid] = struct{}{}
 	}
 
 	// newBlacklist contains UIDs that weren't previously present in the tracked pods.
-	newBlacklist := make([]types.UID, 0, len(e.blacklistUIDs))
+	newBlacklist := make([]apimachinerytypes.UID, 0, len(e.blacklistUIDs))
 	for _, uid := range e.blacklistUIDs {
 		if _, ok := podStatistics.Get(uid); !ok {
 			// This pod has appeared in the resync set, but was not previously tracked, we've missed some events for it, and

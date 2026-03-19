@@ -14,7 +14,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -36,8 +36,8 @@ type PodCollector struct {
 	// statistic states.
 	imagePullEventLoop *ImagePullStatisticEventLoop
 
-	// imagePullCollectors is a map of [*imagePullCollector] instances for each Pod [types.UID].
-	// Keys are [types.UID] and values are [*imagePullCollector].
+	// imagePullCollectors is a map of [*imagePullCollector] instances for each Pod [apimachinerytypes.UID].
+	// Keys are [apimachinerytypes.UID] and values are [*imagePullCollector].
 	// Moving the imagePullCollectors to an event loop to avoid having to handle concurrent access would simplify the code
 	// and make it easier to reason about.
 	imagePullCollectors *sync.Map
@@ -75,14 +75,14 @@ func (w *PodCollector) Run(clientset *kubernetes.Clientset) {
 			log.Panic().Err(err).Msg("Failed to publish resync pods")
 		}
 
-		resyncUIDSet := make(map[types.UID]struct{}, len(resyncUIDs))
+		resyncUIDSet := make(map[apimachinerytypes.UID]struct{}, len(resyncUIDs))
 		for _, uid := range resyncUIDs {
 			resyncUIDSet[uid] = struct{}{}
 		}
 
 		w.imagePullCollectors.Range(func(key, _ any) bool {
-			// We are the only ones using the map, so we can safely cast to types.UID.
-			uid, isUID := key.(types.UID)
+			// We are the only ones using the map, so we can safely cast to apimachinerytypes.UID.
+			uid, isUID := key.(apimachinerytypes.UID)
 			if !isUID {
 				log.Panic().Any("key", key).Msgf("Non-UID key found in imagePullCollectors map")
 			}
@@ -171,7 +171,7 @@ func (w *PodCollector) addImagePullCollector(
 }
 
 // cancelImagePullCollector cancels and removes the image pull collector for the given pod UID.
-func (w *PodCollector) cancelImagePullCollector(uid types.UID, reason string) {
+func (w *PodCollector) cancelImagePullCollector(uid apimachinerytypes.UID, reason string) {
 	if existing, ok := w.imagePullCollectors.LoadAndDelete(uid); ok {
 		collector, ok := existing.(*imagePullCollector)
 		if !ok {
@@ -259,14 +259,14 @@ func (w *PodCollector) watch(
 // error if one occurred.
 func (w *PodCollector) collectInitialPods(
 	clientset *kubernetes.Clientset,
-) ([]types.UID, string, error) {
+) ([]apimachinerytypes.UID, string, error) {
 	timeOut := w.options.KubeWatchTimeout
 	listOptions := metav1.ListOptions{
 		TimeoutSeconds: &timeOut,
 		Limit:          w.options.KubeWatchMaxEvents,
 	}
 
-	blacklistUIDs := make([]types.UID, 0)
+	blacklistUIDs := make([]apimachinerytypes.UID, 0)
 
 	log.Info().Msg("Listing pods to get initial state ...")
 
