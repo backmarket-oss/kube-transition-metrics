@@ -42,7 +42,7 @@ labels: {}
 podMonitor:
   enabled: false
   # Namespace in which to create the PodMonitor. Defaults to the release namespace.
-  namespace: ""
+  namespace: null
   # Additional labels for the PodMonitor, e.g. to match your Prometheus
   # `podMonitorSelector` (such as `release: kube-prometheus-stack`).
   labels: {}
