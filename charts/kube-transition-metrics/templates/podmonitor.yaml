@@ -3,9 +3,6 @@ apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: {{ include "kube-transition-metrics.fullname" . | quote }}
-  {{- with .Values.podMonitor.namespace }}
-  namespace: {{ . | quote }}
-  {{- end }}
   labels:
     {{- include "kube-transition-metrics.labels" . | nindent 4 }}
     {{- with .Values.podMonitor.labels }}
