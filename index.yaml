@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   kube-transition-metrics:
   - apiVersion: v2
+    appVersion: 0.3.1
+    created: "2026-06-08T12:34:02.349951753Z"
+    description: A Kubernetes watcher to compute the timeline of various parts of
+      a Pod lifecycle and export them as a JSON stream to stdout.
+    digest: 675bb0c0073511daa66ae019071efcc10ab2d6c88dbdff2e83d4d6182dfea193
+    name: kube-transition-metrics
+    type: application
+    urls:
+    - https://github.com/backmarket-oss/kube-transition-metrics/releases/download/kube-transition-metrics-0.3.0/kube-transition-metrics-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
     appVersion: 0.3.0
     created: "2025-07-15T15:27:43.71633934Z"
     description: A Kubernetes watcher to compute the timeline of various parts of
@@ -56,4 +67,4 @@ entries:
     urls:
     - https://github.com/backmarket-oss/kube-transition-metrics/releases/download/kube-transition-metrics-0.1.2/kube-transition-metrics-0.1.2.tgz
     version: 0.1.2
-generated: "2025-07-15T15:27:43.716359268Z"
+generated: "2026-06-08T12:34:02.3499774Z"
