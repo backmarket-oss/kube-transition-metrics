@@ -17,9 +17,6 @@ spec:
   selector:
     matchLabels:
       {{- include "kube-transition-metrics.selectorLabels" . | nindent 6 }}
-  namespaceSelector:
-    matchNames:
-      - {{ .Release.Namespace | quote }}
   podMetricsEndpoints:
     - port: http
       path: /metrics
