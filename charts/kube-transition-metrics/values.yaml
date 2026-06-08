@@ -39,6 +39,21 @@ role:
 annotations: {}
 labels: {}
 
+podMonitor:
+  enabled: false
+  # Additional labels for the PodMonitor, e.g. to match your Prometheus
+  # `podMonitorSelector` (such as `release: kube-prometheus-stack`).
+  labels: {}
+  annotations: {}
+  # Scrape interval and timeout. Leave empty to use the Prometheus defaults.
+  interval: ""
+  scrapeTimeout: ""
+  honorLabels: false
+  # RelabelConfigs applied to samples before scraping.
+  relabelings: []
+  # MetricRelabelConfigs applied to samples before ingestion.
+  metricRelabelings: []
+
 deploymentAnnotations: {}
 deploymentLabels: {}
 
