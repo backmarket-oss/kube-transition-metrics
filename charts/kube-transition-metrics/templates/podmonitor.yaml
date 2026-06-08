@@ -1,0 +1,45 @@
+{{- if .Values.podMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kube-transition-metrics.fullname" . | quote }}
+  {{- with .Values.podMonitor.namespace }}
+  namespace: {{ . | quote }}
+  {{- end }}
+  labels:
+    {{- include "kube-transition-metrics.labels" . | nindent 4 }}
+    {{- with .Values.podMonitor.labels }}
+    {{-   toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- include "kube-transition-metrics.annotations" . | nindent 4 }}
+    {{- with .Values.podMonitor.annotations }}
+    {{-   toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kube-transition-metrics.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace | quote }}
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+      {{- with .Values.podMonitor.interval }}
+      interval: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.podMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ . | quote }}
+      {{- end }}
+      honorLabels: {{ .Values.podMonitor.honorLabels }}
+      {{- with .Values.podMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
